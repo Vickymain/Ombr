@@ -33,12 +33,12 @@ class DashboardController extends Controller
             $income = $user->transactions()
                 ->where('type', 'income')
                 ->whereBetween('transaction_date', [$startDate, $endDate])
-                ->sum('amount');
+                ->sum('amount') ?? 0;
 
             $expenses = $user->transactions()
                 ->where('type', 'expense')
                 ->whereBetween('transaction_date', [$startDate, $endDate])
-                ->sum('amount');
+                ->sum('amount') ?? 0;
 
             $monthlyData[] = [
                 'month' => $month->format('M'),

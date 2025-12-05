@@ -22,14 +22,16 @@ const navigation = [
 
 export default function AppLayout({ children, title }) {
     const [sidebarOpen, setSidebarOpen] = useState(false);
-    const { url, auth } = usePage().props;
+    const page = usePage();
+    const url = page.url || '';
+    const auth = page.props?.auth || { user: null };
 
     const handleLogout = () => {
         router.post('/logout');
     };
 
     return (
-        <div className="min-h-screen bg-gray-50">
+        <div className="min-h-screen bg-[#FFF5F0]">
             {/* Mobile sidebar */}
             {sidebarOpen && (
                 <div className="fixed inset-0 z-50 lg:hidden">
@@ -43,7 +45,7 @@ export default function AppLayout({ children, title }) {
                         </div>
                         <nav className="flex-1 space-y-1 px-3 py-4">
                             {navigation.map((item) => {
-                                const isActive = url.startsWith(item.href);
+                                const isActive = url && url.startsWith(item.href);
                                 return (
                                     <Link
                                         key={item.name}
@@ -72,7 +74,7 @@ export default function AppLayout({ children, title }) {
                     </div>
                     <nav className="mt-8 flex-1 flex flex-col space-y-1 px-3">
                         {navigation.map((item) => {
-                            const isActive = url.startsWith(item.href);
+                            const isActive = url && url.startsWith(item.href);
                             return (
                                 <Link
                                     key={item.name}

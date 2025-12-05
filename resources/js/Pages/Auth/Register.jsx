@@ -1,5 +1,7 @@
 import { useForm, Link } from '@inertiajs/react';
-import { CheckCircleIcon } from '@heroicons/react/24/solid';
+import { CheckCircleIcon, XCircleIcon } from '@heroicons/react/24/solid';
+import { EyeIcon, EyeSlashIcon } from '@heroicons/react/24/outline';
+import { useState } from 'react';
 
 export default function Register() {
     const { data, setData, post, processing, errors } = useForm({
@@ -9,6 +11,35 @@ export default function Register() {
         password_confirmation: '',
     });
 
+    const [passwordFocused, setPasswordFocused] = useState(false);
+    const [showPassword, setShowPassword] = useState(false);
+    const [showPasswordConfirmation, setShowPasswordConfirmation] = useState(false);
+
+    // Password validation checks
+    const passwordChecks = {
+        length: data.password.length >= 8,
+        uppercase: /[A-Z]/.test(data.password),
+        lowercase: /[a-z]/.test(data.password),
+        number: /\d/.test(data.password),
+        special: /[@$!%*?&#]/.test(data.password),
+    };
+
+    const allPasswordChecksPassed = Object.values(passwordChecks).every(check => check);
+
+    // Name validation (at least two names, each with minimum 2 characters)
+    const nameParts = data.name.trim().split(/\s+/).filter(part => part.length > 0);
+    const nameIsValid = nameParts.length >= 2 && nameParts.every(part => part.length >= 2);
+
+    // Email validation - only allow valid email providers
+    const allowedDomains = ['gmail.com', 'yahoo.com', 'outlook.com', 'hotmail.com', 'icloud.com', 'aol.com', 'protonmail.com'];
+    const emailParts = data.email.split('@');
+    const domain = emailParts[1]?.toLowerCase();
+    
+    const emailIsValid = data.email.includes('@') && 
+                         emailParts.length === 2 &&
+                         emailParts[0].length > 0 &&
+                         allowedDomains.includes(domain);
+
     const handleSubmit = (e) => {
         e.preventDefault();
         post('/register');
@@ -17,7 +48,7 @@ export default function Register() {
     return (
         <div className="min-h-screen bg-[#FFF5F0] flex">
             {/* Left Section - Promotional Content */}
-            <div className="hidden lg:flex lg:w-1/2 relative p-16 flex-col justify-between overflow-hidden">
+            <div className="hidden lg:flex lg:w-1/2 relative p-16 overflow-hidden">
                 {/* Organic Background Shapes */}
                 <svg className="absolute inset-0 w-full h-full" viewBox="0 0 800 1000" preserveAspectRatio="xMidYMid slice">
                     {/* Large organic blob shape */}
@@ -33,8 +64,8 @@ export default function Register() {
                         opacity="0.5"
                     />
                 </svg>
-                {/* Top Content */}
-                <div className="space-y-8 relative z-10">
+                {/* Content - Fixed positioning */}
+                <div className="relative z-10 flex flex-col space-y-8">
                     {/* Decorative icon + Years text */}
                     <div className="flex items-start space-x-6">
                         <div className="flex flex-col space-y-1 pt-2">
@@ -67,20 +98,23 @@ export default function Register() {
                             <div className="w-8 h-8 border-2 border-black transform rotate-45"></div>
                             <div className="w-8 h-8 border-2 border-black transform rotate-45"></div>
                         </div>
-                    </div>
-                </div>
-
-                {/* Bottom Content */}
-                <div className="space-y-6 relative z-10">
-                    <button className="bg-black text-white px-8 py-3 rounded-full hover:bg-gray-800 transition-colors inline-flex items-center">
-                        Learn Now
-                        <span className="ml-3 text-lg">→</span>
-                    </button>
-                    
-                    <div className="flex items-center space-x-3 text-xs text-black">
-                        <span className="hover:underline cursor-pointer">Terms & Conditions</span>
-                        <span>|</span>
-                        <span className="hover:underline cursor-pointer">Privacy Policy</span>
+                        
+                        {/* Learn Now button below diamonds */}
+                        <div className="pt-6">
+                            <Link href="/learn-more" className="bg-black text-white px-8 py-3 rounded-full hover:bg-gray-800 transition-colors inline-flex items-center">
+                                Learn Now
+                                <span className="ml-3 text-lg">→</span>
+                            </Link>
+                        </div>
+                        
+                        {/* Terms & Policy below button */}
+                        <div className="pt-6">
+                            <div className="flex items-center space-x-3 text-xs text-black">
+                                <Link href="/terms" className="hover:underline cursor-pointer">Terms & Conditions</Link>
+                                <span>|</span>
+                                <Link href="/privacy" className="hover:underline cursor-pointer">Privacy Policy</Link>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
@@ -88,13 +122,6 @@ export default function Register() {
 
             {/* Right Section - Register Form */}
             <div className="w-full lg:w-1/2 flex items-center justify-center p-8 relative">
-                {/* Social Links - Bottom Right */}
-                <div className="absolute bottom-8 right-8 text-xs text-black">
-                    <a href="#" className="hover:underline">Instagram</a>
-                    <span className="mx-2">|</span>
-                    <a href="#" className="hover:underline">Facebook</a>
-                </div>
-
                 {/* Register Card */}
                 <div className="bg-white rounded-3xl shadow-2xl p-10 w-full max-w-md">
                     <h2 className="text-3xl font-bold text-black mb-2">Create Account</h2>
@@ -109,19 +136,28 @@ export default function Register() {
                                     type="text"
                                     value={data.name}
                                     onChange={e => setData('name', e.target.value)}
-                                    className={`w-full px-4 py-3 border ${errors.name ? 'border-red-300' : 'border-gray-200'} rounded-xl focus:outline-none focus:border-[#FF9B7C] transition-colors`}
+                                    className={`w-full px-4 py-3 border ${errors.name ? 'border-red-300' : data.name && !nameIsValid ? 'border-red-300' : 'border-gray-200'} rounded-xl focus:outline-none focus:border-[#FF9B7C] transition-colors`}
                                     placeholder="John Doe"
                                     required
                                 />
                                 {data.name && !errors.name && (
                                     <div className="absolute right-4 top-1/2 transform -translate-y-1/2">
-                                        <div className="bg-[#FF9B7C] rounded-full p-1">
-                                            <CheckCircleIcon className="h-4 w-4 text-white" />
-                                        </div>
+                                        {nameIsValid ? (
+                                            <div className="bg-[#FF9B7C] rounded-full p-1">
+                                                <CheckCircleIcon className="h-4 w-4 text-white" />
+                                            </div>
+                                        ) : (
+                                            <div className="bg-red-500 rounded-full p-1">
+                                                <XCircleIcon className="h-4 w-4 text-white" />
+                                            </div>
+                                        )}
                                     </div>
                                 )}
                             </div>
                             {errors.name && <p className="mt-1 text-sm text-red-600">{errors.name}</p>}
+                            {!errors.name && data.name && !nameIsValid && (
+                                <p className="mt-1 text-xs text-gray-500">Please enter at least a first and last name (At least 2 characters per name)</p>
+                            )}
                         </div>
 
                         {/* Email Field */}
@@ -132,66 +168,163 @@ export default function Register() {
                                     type="email"
                                     value={data.email}
                                     onChange={e => setData('email', e.target.value)}
-                                    className={`w-full px-4 py-3 border ${errors.email ? 'border-red-300' : 'border-gray-200'} rounded-xl focus:outline-none focus:border-[#FF9B7C] transition-colors`}
-                                    placeholder="your@email.com"
+                                    className={`w-full px-4 py-3 border ${errors.email ? 'border-red-300' : data.email && !emailIsValid ? 'border-red-300' : 'border-gray-200'} rounded-xl focus:outline-none focus:border-[#FF9B7C] transition-colors`}
+                                    placeholder="your@gmail.com"
                                     required
                                 />
                                 {data.email && !errors.email && (
                                     <div className="absolute right-4 top-1/2 transform -translate-y-1/2">
-                                        <div className="bg-[#FF9B7C] rounded-full p-1">
-                                            <CheckCircleIcon className="h-4 w-4 text-white" />
-                                        </div>
+                                        {emailIsValid ? (
+                                            <div className="bg-[#FF9B7C] rounded-full p-1">
+                                                <CheckCircleIcon className="h-4 w-4 text-white" />
+                                            </div>
+                                        ) : (
+                                            <div className="bg-red-500 rounded-full p-1">
+                                                <XCircleIcon className="h-4 w-4 text-white" />
+                                            </div>
+                                        )}
                                     </div>
                                 )}
                             </div>
                             {errors.email && <p className="mt-1 text-sm text-red-600">{errors.email}</p>}
+                            {!errors.email && data.email && !emailIsValid && (
+                                <p className="mt-1 text-xs text-gray-500">Please enter a valid email</p>
+                            )}
                         </div>
 
                         {/* Password Field */}
                         <div>
                             <label className="block text-sm text-black mb-2">Create Passcode</label>
-                            <input
-                                type="password"
-                                value={data.password}
-                                onChange={e => setData('password', e.target.value)}
-                                className={`w-full px-4 py-3 border ${errors.password ? 'border-red-300' : 'border-gray-200'} rounded-xl focus:outline-none focus:border-[#FF9B7C] transition-colors`}
-                                placeholder="••••••••"
-                                required
-                            />
+                            <div className="relative">
+                                <input
+                                    type={showPassword ? 'text' : 'password'}
+                                    value={data.password}
+                                    onChange={e => setData('password', e.target.value)}
+                                    onFocus={() => setPasswordFocused(true)}
+                                    onBlur={() => setPasswordFocused(false)}
+                                    className={`w-full px-4 py-3 pr-12 border ${errors.password ? 'border-red-300' : 'border-gray-200'} rounded-xl focus:outline-none focus:border-[#FF9B7C] transition-colors`}
+                                    placeholder="••••••••"
+                                    required
+                                />
+                                <button
+                                    type="button"
+                                    onClick={() => setShowPassword(!showPassword)}
+                                    className="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
+                                >
+                                    {showPassword ? (
+                                        <EyeSlashIcon className="h-5 w-5" />
+                                    ) : (
+                                        <EyeIcon className="h-5 w-5" />
+                                    )}
+                                </button>
+                            </div>
                             {errors.password && <p className="mt-1 text-sm text-red-600">{errors.password}</p>}
+                            
+                            {/* Password Requirements */}
+                            {(passwordFocused || data.password) && (
+                                <div className="mt-2 p-3 bg-gray-50 rounded-lg text-xs space-y-1">
+                                    <p className="font-medium text-gray-700 mb-2">Password must contain:</p>
+                                    <div className="flex items-center space-x-2">
+                                        {passwordChecks.length ? (
+                                            <CheckCircleIcon className="h-4 w-4 text-green-500" />
+                                        ) : (
+                                            <XCircleIcon className="h-4 w-4 text-gray-300" />
+                                        )}
+                                        <span className={passwordChecks.length ? 'text-green-600' : 'text-gray-500'}>
+                                            At least 8 characters
+                                        </span>
+                                    </div>
+                                    <div className="flex items-center space-x-2">
+                                        {passwordChecks.uppercase ? (
+                                            <CheckCircleIcon className="h-4 w-4 text-green-500" />
+                                        ) : (
+                                            <XCircleIcon className="h-4 w-4 text-gray-300" />
+                                        )}
+                                        <span className={passwordChecks.uppercase ? 'text-green-600' : 'text-gray-500'}>
+                                            One uppercase letter (A-Z)
+                                        </span>
+                                    </div>
+                                    <div className="flex items-center space-x-2">
+                                        {passwordChecks.lowercase ? (
+                                            <CheckCircleIcon className="h-4 w-4 text-green-500" />
+                                        ) : (
+                                            <XCircleIcon className="h-4 w-4 text-gray-300" />
+                                        )}
+                                        <span className={passwordChecks.lowercase ? 'text-green-600' : 'text-gray-500'}>
+                                            One lowercase letter (a-z)
+                                        </span>
+                                    </div>
+                                    <div className="flex items-center space-x-2">
+                                        {passwordChecks.number ? (
+                                            <CheckCircleIcon className="h-4 w-4 text-green-500" />
+                                        ) : (
+                                            <XCircleIcon className="h-4 w-4 text-gray-300" />
+                                        )}
+                                        <span className={passwordChecks.number ? 'text-green-600' : 'text-gray-500'}>
+                                            One number (0-9)
+                                        </span>
+                                    </div>
+                                    <div className="flex items-center space-x-2">
+                                        {passwordChecks.special ? (
+                                            <CheckCircleIcon className="h-4 w-4 text-green-500" />
+                                        ) : (
+                                            <XCircleIcon className="h-4 w-4 text-gray-300" />
+                                        )}
+                                        <span className={passwordChecks.special ? 'text-green-600' : 'text-gray-500'}>
+                                            One special character (@$!%*?&#)
+                                        </span>
+                                    </div>
+                                </div>
+                            )}
                         </div>
 
                         {/* Confirm Password Field */}
                         <div>
                             <label className="block text-sm text-black mb-2">Confirm Passcode</label>
-                            <input
-                                type="password"
-                                value={data.password_confirmation}
-                                onChange={e => setData('password_confirmation', e.target.value)}
-                                className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:border-[#FF9B7C] transition-colors"
-                                placeholder="••••••••"
-                                required
-                            />
+                            <div className="relative">
+                                <input
+                                    type={showPasswordConfirmation ? 'text' : 'password'}
+                                    value={data.password_confirmation}
+                                    onChange={e => setData('password_confirmation', e.target.value)}
+                                    className="w-full px-4 py-3 pr-12 border border-gray-200 rounded-xl focus:outline-none focus:border-[#FF9B7C] transition-colors"
+                                    placeholder="••••••••"
+                                    required
+                                />
+                                <button
+                                    type="button"
+                                    onClick={() => setShowPasswordConfirmation(!showPasswordConfirmation)}
+                                    className="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
+                                >
+                                    {showPasswordConfirmation ? (
+                                        <EyeSlashIcon className="h-5 w-5" />
+                                    ) : (
+                                        <EyeIcon className="h-5 w-5" />
+                                    )}
+                                </button>
+                            </div>
                         </div>
 
                         {/* Terms */}
                         <div className="text-xs text-black">
                             By creating an account, you agree to our{' '}
-                            <a href="#" className="text-[#FF9B7C] underline hover:text-[#FF8560]">
+                            <Link href="/terms" className="text-[#FF9B7C] underline hover:text-[#FF8560]">
                                 Terms & Conditions
-                            </a>
+                            </Link>
                         </div>
 
                         {/* Submit Button */}
                         <div className="pt-2">
                             <button
                                 type="submit"
-                                disabled={processing}
+                                disabled={processing || !nameIsValid || !emailIsValid || !allPasswordChecksPassed || data.password !== data.password_confirmation}
                                 className="w-full bg-black text-white px-8 py-3 rounded-full hover:bg-gray-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                             >
                                 {processing ? 'Creating Account...' : 'Create Account'}
                                 <span className="ml-2">→</span>
                             </button>
+                            {data.password && data.password_confirmation && data.password !== data.password_confirmation && (
+                                <p className="mt-2 text-xs text-red-600 text-center">Passwords do not match</p>
+                            )}
                         </div>
 
                         {/* Login Link */}

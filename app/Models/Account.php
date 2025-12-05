@@ -43,9 +43,9 @@ class Account extends Model
      * An account belongs to a user.
      */
     public function user()
-    {
-        return $this->belongsTo(User::class);
-    }
+{
+    return $this->belongsTo(User::class);
+}
 
     /**
      * An account can have many transactions.

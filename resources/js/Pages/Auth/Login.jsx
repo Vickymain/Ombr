@@ -1,5 +1,7 @@
 import { useForm, Link } from '@inertiajs/react';
-import { CheckCircleIcon } from '@heroicons/react/24/solid';
+import { CheckCircleIcon, XCircleIcon } from '@heroicons/react/24/solid';
+import { EyeIcon, EyeSlashIcon } from '@heroicons/react/24/outline';
+import { useState } from 'react';
 
 export default function Login() {
     const { data, setData, post, processing, errors } = useForm({
@@ -7,6 +9,18 @@ export default function Login() {
         password: '',
         remember: false,
     });
+
+    const [showPassword, setShowPassword] = useState(false);
+
+    // Email validation - only allow specific domains (same as Register)
+    const allowedDomains = ['gmail.com', 'yahoo.com', 'outlook.com', 'hotmail.com', 'icloud.com', 'aol.com', 'protonmail.com'];
+    const emailParts = data.email.split('@');
+    const domain = emailParts[1]?.toLowerCase();
+    
+    const emailIsValid = data.email.includes('@') && 
+                         emailParts.length === 2 &&
+                         emailParts[0].length > 0 &&
+                         allowedDomains.includes(domain);
 
     const handleSubmit = (e) => {
         e.preventDefault();
@@ -16,7 +30,7 @@ export default function Login() {
     return (
         <div className="min-h-screen bg-[#FFF5F0] flex">
             {/* Left Section - Promotional Content */}
-            <div className="hidden lg:flex lg:w-1/2 relative p-16 flex-col justify-between overflow-hidden">
+            <div className="hidden lg:flex lg:w-1/2 relative p-16 overflow-hidden">
                 {/* Organic Background Shapes */}
                 <svg className="absolute inset-0 w-full h-full" viewBox="0 0 800 1000" preserveAspectRatio="xMidYMid slice">
                     {/* Large organic blob shape */}
@@ -32,8 +46,8 @@ export default function Login() {
                         opacity="0.5"
                     />
                 </svg>
-                {/* Top Content */}
-                <div className="space-y-8 relative z-10">
+                {/* Content - Fixed positioning */}
+                <div className="relative z-10 flex flex-col space-y-8">
                     {/* Decorative icon + Years text */}
                     <div className="flex items-start space-x-6">
                         <div className="flex flex-col space-y-1 pt-2">
@@ -66,20 +80,23 @@ export default function Login() {
                             <div className="w-8 h-8 border-2 border-black transform rotate-45"></div>
                             <div className="w-8 h-8 border-2 border-black transform rotate-45"></div>
                         </div>
-                    </div>
-                </div>
-
-                {/* Bottom Content */}
-                <div className="space-y-6 relative z-10">
-                    <button className="bg-black text-white px-8 py-3 rounded-full hover:bg-gray-800 transition-colors inline-flex items-center">
-                        Learn Now
-                        <span className="ml-3 text-lg">→</span>
-                    </button>
-                    
-                    <div className="flex items-center space-x-3 text-xs text-black">
-                        <span className="hover:underline cursor-pointer">Terms & Conditions</span>
-                        <span>|</span>
-                        <span className="hover:underline cursor-pointer">Privacy Policy</span>
+                        
+                        {/* Learn Now button below diamonds */}
+                        <div className="pt-6">
+                            <Link href="/learn-more" className="bg-black text-white px-8 py-3 rounded-full hover:bg-gray-800 transition-colors inline-flex items-center">
+                                Learn Now
+                                <span className="ml-3 text-lg">→</span>
+                            </Link>
+                        </div>
+                        
+                        {/* Terms & Policy below button */}
+                        <div className="pt-6">
+                            <div className="flex items-center space-x-3 text-xs text-black">
+                                <Link href="/terms" className="hover:underline cursor-pointer">Terms & Conditions</Link>
+                                <span>|</span>
+                                <Link href="/privacy" className="hover:underline cursor-pointer">Privacy Policy</Link>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
@@ -87,13 +104,6 @@ export default function Login() {
 
             {/* Right Section - Login Form */}
             <div className="w-full lg:w-1/2 flex items-center justify-center p-8 relative">
-                {/* Social Links - Bottom Right */}
-                <div className="absolute bottom-8 right-8 text-xs text-black">
-                    <a href="#" className="hover:underline">Instagram</a>
-                    <span className="mx-2">|</span>
-                    <a href="#" className="hover:underline">Facebook</a>
-                </div>
-
                 {/* Login Card */}
                 <div className="bg-white rounded-3xl shadow-2xl p-10 w-full max-w-md">
                     <h2 className="text-3xl font-bold text-black mb-8">Login Now</h2>
@@ -107,32 +117,54 @@ export default function Login() {
                                     type="email"
                                     value={data.email}
                                     onChange={e => setData('email', e.target.value)}
-                                    className={`w-full px-4 py-3 border ${errors.email ? 'border-red-300' : 'border-gray-200'} rounded-xl focus:outline-none focus:border-[#FF9B7C] transition-colors`}
-                                    placeholder="your@email.com"
+                                    className={`w-full px-4 py-3 pr-12 border ${errors.email ? 'border-red-300' : data.email && !emailIsValid ? 'border-red-300' : 'border-gray-200'} rounded-xl focus:outline-none focus:border-[#FF9B7C] transition-colors`}
+                                    placeholder="your@gmail.com"
                                     required
                                 />
                                 {data.email && !errors.email && (
                                     <div className="absolute right-4 top-1/2 transform -translate-y-1/2">
-                                        <div className="bg-[#FF9B7C] rounded-full p-1">
-                                            <CheckCircleIcon className="h-4 w-4 text-white" />
-                                        </div>
+                                        {emailIsValid ? (
+                                            <div className="bg-[#FF9B7C] rounded-full p-1">
+                                                <CheckCircleIcon className="h-4 w-4 text-white" />
+                                            </div>
+                                        ) : (
+                                            <div className="bg-red-500 rounded-full p-1">
+                                                <XCircleIcon className="h-4 w-4 text-white" />
+                                            </div>
+                                        )}
                                     </div>
                                 )}
                             </div>
                             {errors.email && <p className="mt-1 text-sm text-red-600">{errors.email}</p>}
+                            {!errors.email && data.email && !emailIsValid && (
+                                <p className="mt-1 text-xs text-gray-500">Please enter a valid email</p>
+                            )}
                         </div>
 
                         {/* Password Field */}
                         <div>
                             <label className="block text-sm text-black mb-2">Enter Passcode</label>
-                            <input
-                                type="password"
-                                value={data.password}
-                                onChange={e => setData('password', e.target.value)}
-                                className={`w-full px-4 py-3 border ${errors.password ? 'border-red-300' : 'border-gray-200'} rounded-xl focus:outline-none focus:border-[#FF9B7C] transition-colors`}
-                                placeholder="••••••••"
-                                required
-                            />
+                            <div className="relative">
+                                <input
+                                    type={showPassword ? 'text' : 'password'}
+                                    value={data.password}
+                                    onChange={e => setData('password', e.target.value)}
+                                    className={`w-full px-4 py-3 pr-12 border ${errors.password ? 'border-red-300' : 'border-gray-200'} rounded-xl focus:outline-none focus:border-[#FF9B7C] transition-colors`}
+                                    placeholder="••••••••"
+                                    required
+                                />
+                                <button
+                                    type="button"
+                                    onClick={() => setShowPassword(!showPassword)}
+                                    className="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
+                                >
+                                    {showPassword ? (
+                                        <EyeSlashIcon className="h-5 w-5" />
+                                    ) : (
+                                        <EyeIcon className="h-5 w-5" />
+                                    )}
+                                </button>
+                            </div>
                             {errors.password && <p className="mt-1 text-sm text-red-600">{errors.password}</p>}
                         </div>
 
@@ -152,9 +184,9 @@ export default function Login() {
                         {/* Terms */}
                         <div className="text-xs text-black">
                             By login, you agree to our{' '}
-                            <a href="#" className="text-[#FF9B7C] underline hover:text-[#FF8560]">
+                            <Link href="/terms" className="text-[#FF9B7C] underline hover:text-[#FF8560]">
                                 Terms & Conditions
-                            </a>
+                            </Link>
                         </div>
 
                         {/* Submit Button & Forgot Link */}

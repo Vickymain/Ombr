@@ -4,12 +4,18 @@ use App\Http\Controllers\AuthController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\AccountController;
 use App\Http\Controllers\TransactionController;
+use App\Http\Controllers\PagesController;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 
+// Public routes (accessible to everyone)
+Route::get('/terms', [PagesController::class, 'terms'])->name('terms');
+Route::get('/privacy', [PagesController::class, 'privacy'])->name('privacy');
+Route::get('/learn-more', [PagesController::class, 'learnMore'])->name('learn-more');
+
 // Guest routes (only accessible when NOT logged in)
 Route::middleware('guest')->group(function () {
-    Route::get('/', function () {
+Route::get('/', function () {
         return redirect('/login');
     });
     

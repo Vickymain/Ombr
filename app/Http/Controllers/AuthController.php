@@ -20,9 +20,44 @@ class AuthController extends Controller
     public function register(Request $request)
     {
         $request->validate([
-            'name' => 'required|string|max:255',
-            'email' => 'required|email|unique:users,email',
-            'password' => 'required|min:6|confirmed'
+            'name' => [
+                'required',
+                'string',
+                'max:255',
+                'regex:/^[a-zA-Z]{2,}\s+[a-zA-Z]{2,}.*$/' // At least two names, each with minimum 2 characters
+            ],
+            'email' => [
+                'required',
+                'email:rfc,dns',
+                'unique:users,email',
+                function ($attribute, $value, $fail) {
+                    // Only allow specific email domains
+                    $allowedDomains = ['gmail.com', 'yahoo.com', 'outlook.com', 'hotmail.com', 'icloud.com', 'aol.com', 'protonmail.com'];
+                    $parts = explode('@', $value);
+                    
+                    if (count($parts) !== 2 || empty($parts[0])) {
+                        $fail('Please enter a valid email address.');
+                        return;
+                    }
+                    
+                    $domain = strtolower($parts[1]);
+                    
+                    if (!in_array($domain, $allowedDomains)) {
+                        $fail('Please enter a valid email address from an allowed domain.');
+                    }
+                },
+            ],
+            'password' => [
+                'required',
+                'min:8',
+                'confirmed',
+                'regex:/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&#])[A-Za-z\d@$!%*?&#]+$/' // Strong password
+            ]
+        ], [
+            'name.regex' => 'Full name must contain at least first name and last name, each with at least 2 characters.',
+            'email.email' => 'Only @gmail.com and @yahoo.com email addresses are allowed.',
+            'password.min' => 'Password must be at least 8 characters long.',
+            'password.regex' => 'Password must contain at least one uppercase letter, one lowercase letter, one number, and one special character (@$!%*?&#).',
         ]);
 
         $user = User::create([
@@ -46,18 +81,49 @@ class AuthController extends Controller
     public function login(Request $request)
     {
         $credentials = $request->validate([
-            'email' => 'required|email',
+            'email' => [
+                'required',
+                'email',
+                function ($attribute, $value, $fail) {
+                    // Only allow specific email domains (same as Register)
+                    $allowedDomains = ['gmail.com', 'yahoo.com', 'outlook.com', 'hotmail.com', 'icloud.com', 'aol.com', 'protonmail.com'];
+                    $parts = explode('@', $value);
+                    
+                    if (count($parts) !== 2 || empty($parts[0])) {
+                        $fail('Please enter a valid email address.');
+                        return;
+                    }
+                    
+                    $domain = strtolower($parts[1]);
+                    
+                    if (!in_array($domain, $allowedDomains)) {
+                        $fail('Please enter a valid email address from an allowed domain.');
+                    }
+                },
+            ],
             'password' => 'required'
         ]);
 
-        if (Auth::attempt($credentials, $request->boolean('remember'))) {
-            $request->session()->regenerate();
-            return redirect()->intended('dashboard');
-        }
+        // Check if user exists with this email
+        $user = User::where('email', $request->email)->first();
 
-        return back()->withErrors([
-            'email' => 'The provided credentials do not match our records.',
-        ])->onlyInput('email');
+        if ($user) {
+            // User exists, check password
+            if (Auth::attempt($credentials, $request->boolean('remember'))) {
+                $request->session()->regenerate();
+                return redirect()->intended('dashboard');
+            } else {
+                // Email is correct but password is wrong
+                return back()->withErrors([
+                    'password' => 'The password is incorrect.',
+                ])->onlyInput('email');
+            }
+        } else {
+            // User doesn't exist
+            return back()->withErrors([
+                'email' => "Credentials don't match our records.",
+            ])->onlyInput('email');
+        }
     }
 
     // Handle Logout
