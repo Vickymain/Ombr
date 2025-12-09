@@ -1,14 +1,45 @@
 import { useState } from 'react';
 import AppLayout from '../Layouts/AppLayout';
-import { PlusIcon, PencilIcon, TrashIcon } from '@heroicons/react/24/outline';
+import { PlusIcon, PencilIcon, TrashIcon, XMarkIcon } from '@heroicons/react/24/outline';
 import { useForm } from '@inertiajs/react';
+
+// Provider categories and providers
+const providerCategories = [
+    {
+        name: 'Mobile Money',
+        providers: [
+            { name: 'Mpesa', logo: '📱', apiAvailable: true, apiKey: 'mpesa' },
+        ],
+    },
+    {
+        name: 'Banking',
+        providers: [
+            { name: 'Equity Bank', logo: '🏦', apiAvailable: true, apiKey: 'equity_bank' },
+            { name: 'NCBA', logo: '🏦', apiAvailable: true, apiKey: 'ncba' },
+            { name: 'KCB Bank', logo: '🏦', apiAvailable: true, apiKey: 'kcb' },
+            { name: 'Cooperative Bank', logo: '🏦', apiAvailable: true, apiKey: 'cooperative' },
+            { name: 'Standard Chartered', logo: '🏦', apiAvailable: true, apiKey: 'standard_chartered' },
+        ],
+    },
+    {
+        name: 'Credit Cards',
+        providers: [
+            { name: 'Visa', logo: '💳', apiAvailable: true, apiKey: 'visa' },
+            { name: 'Mastercard', logo: '💳', apiAvailable: true, apiKey: 'mastercard' },
+            { name: 'American Express', logo: '💳', apiAvailable: true, apiKey: 'amex' },
+        ],
+    },
+];
 
 export default function Accounts({ accounts = [] }) {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingAccount, setEditingAccount] = useState(null);
+    const [selectedProvider, setSelectedProvider] = useState(null);
+    const [showManualForm, setShowManualForm] = useState(false);
 
     const { data, setData, post, put, delete: destroy, processing, errors, reset } = useForm({
         provider: '',
+        provider_api_key: '',
         account_name: '',
         account_number: '',
         account_type: 'checking',
@@ -31,9 +62,13 @@ export default function Accounts({ accounts = [] }) {
         if (account) {
             setEditingAccount(account);
             setData(account);
+            setSelectedProvider(null);
+            setShowManualForm(true);
         } else {
             setEditingAccount(null);
             reset();
+            setSelectedProvider(null);
+            setShowManualForm(false);
         }
         setIsModalOpen(true);
     };
@@ -41,7 +76,21 @@ export default function Accounts({ accounts = [] }) {
     const closeModal = () => {
         setIsModalOpen(false);
         setEditingAccount(null);
+        setSelectedProvider(null);
+        setShowManualForm(false);
         reset();
+    };
+
+    const handleProviderSelect = (provider) => {
+        setSelectedProvider(provider);
+        setData('provider', provider.name);
+        setData('provider_api_key', provider.apiKey);
+        setShowManualForm(true);
+    };
+
+    const handleShowManualForm = () => {
+        setSelectedProvider(null);
+        setShowManualForm(true);
     };
 
     const handleSubmit = (e) => {
@@ -66,7 +115,7 @@ export default function Accounts({ accounts = [] }) {
     const totalBalance = accounts.reduce((sum, acc) => sum + parseFloat(acc.balance || 0), 0);
 
     return (
-        <AppLayout title="Accounts">
+        <AppLayout title="Accounts" totalBalance={totalBalance}>
             {/* Header with Add Button */}
             <div className="flex items-center justify-between mb-6">
                 <div>
@@ -168,15 +217,89 @@ export default function Accounts({ accounts = [] }) {
             {/* Modal */}
             {isModalOpen && (
                 <div className="fixed inset-0 z-50 overflow-y-auto">
-                    <div className="flex items-center justify-center min-h-screen px-4">
+                    <div className="flex items-center justify-center min-h-screen px-4 py-8">
                         <div className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" onClick={closeModal} />
 
-                        <div className="relative bg-white rounded-lg shadow-xl max-w-md w-full p-6">
-                            <h3 className="text-lg font-semibold text-gray-900 mb-4">
-                                {editingAccount ? 'Edit Account' : 'Add New Account'}
-                            </h3>
+                        <div className="relative bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+                            <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between z-10">
+                                <h3 className="text-xl font-semibold text-gray-900">
+                                    {editingAccount ? 'Edit Account' : 'Add New Account'}
+                                </h3>
+                                <button
+                                    onClick={closeModal}
+                                    className="text-gray-400 hover:text-gray-600 transition-colors"
+                                >
+                                    <XMarkIcon className="h-6 w-6" />
+                                </button>
+                            </div>
 
-                            <form onSubmit={handleSubmit} className="space-y-4">
+                            <div className="p-6">
+                                {!showManualForm && !editingAccount ? (
+                                    <>
+                                        {/* Provider Selection */}
+                                        <div className="mb-8">
+                                            <h4 className="text-lg font-medium text-gray-900 mb-4">Select a Financial Provider</h4>
+                                            <p className="text-sm text-gray-600 mb-6">Choose from our supported providers or add manually</p>
+                                            
+                                            {providerCategories.map((category) => (
+                                                <div key={category.name} className="mb-8">
+                                                    <h5 className="text-sm font-semibold text-gray-700 mb-3 uppercase tracking-wide">
+                                                        {category.name}
+                                                    </h5>
+                                                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+                                                        {category.providers.map((provider) => (
+                                                            <button
+                                                                key={provider.apiKey}
+                                                                onClick={() => handleProviderSelect(provider)}
+                                                                className="flex flex-col items-center justify-center p-4 border-2 border-gray-200 rounded-lg hover:border-indigo-500 hover:bg-indigo-50 transition-all group"
+                                                            >
+                                                                <div className="text-4xl mb-2">{provider.logo}</div>
+                                                                <span className="text-sm font-medium text-gray-700 group-hover:text-indigo-600">
+                                                                    {provider.name}
+                                                                </span>
+                                                                {provider.apiAvailable && (
+                                                                    <span className="text-xs text-green-600 mt-1">API Ready</span>
+                                                                )}
+                                                            </button>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            ))}
+
+                                            {/* Manual Entry Option */}
+                                            <div className="mt-8 pt-6 border-t border-gray-200">
+                                                <div className="flex items-center justify-between">
+                                                    <div>
+                                                        <h5 className="text-sm font-semibold text-gray-900 mb-1">
+                                                            Don't see your provider?
+                                                        </h5>
+                                                        <p className="text-sm text-gray-600">
+                                                            Add your account manually from any financial institution
+                                                        </p>
+                                                    </div>
+                                                    <button
+                                                        onClick={handleShowManualForm}
+                                                        className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors font-medium"
+                                                    >
+                                                        Add Manually
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </>
+                                ) : (
+                                    <form onSubmit={handleSubmit} className="space-y-4">
+                                        {selectedProvider && (
+                                            <div className="mb-4 p-4 bg-indigo-50 border border-indigo-200 rounded-lg">
+                                                <div className="flex items-center">
+                                                    <span className="text-2xl mr-3">{selectedProvider.logo}</span>
+                                                    <div>
+                                                        <p className="text-sm font-medium text-indigo-900">Selected Provider</p>
+                                                        <p className="text-lg font-semibold text-indigo-700">{selectedProvider.name}</p>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        )}
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 mb-1">Account Name</label>
                                     <input
@@ -196,11 +319,17 @@ export default function Accounts({ accounts = [] }) {
                                         type="text"
                                         value={data.provider}
                                         onChange={e => setData('provider', e.target.value)}
-                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                                        disabled={selectedProvider !== null}
+                                        className={`w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent ${
+                                            selectedProvider ? 'bg-gray-50 cursor-not-allowed' : ''
+                                        }`}
                                         placeholder="e.g., Chase Bank"
                                         required
                                     />
                                     {errors.provider && <p className="text-red-600 text-sm mt-1">{errors.provider}</p>}
+                                    {selectedProvider && (
+                                        <p className="text-xs text-gray-500 mt-1">Provider selected from list (API Key: {selectedProvider.apiKey})</p>
+                                    )}
                                 </div>
 
                                 <div>
@@ -264,23 +393,37 @@ export default function Accounts({ accounts = [] }) {
                                     </label>
                                 </div>
 
-                                <div className="flex justify-end space-x-3 pt-4">
-                                    <button
-                                        type="button"
-                                        onClick={closeModal}
-                                        className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50"
-                                    >
-                                        Cancel
-                                    </button>
-                                    <button
-                                        type="submit"
-                                        disabled={processing}
-                                        className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 disabled:opacity-50"
-                                    >
-                                        {processing ? 'Saving...' : editingAccount ? 'Update Account' : 'Add Account'}
-                                    </button>
-                                </div>
-                            </form>
+                                        <div className="flex justify-end space-x-3 pt-4">
+                                            {!editingAccount && (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => {
+                                                        setShowManualForm(false);
+                                                        setSelectedProvider(null);
+                                                    }}
+                                                    className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50"
+                                                >
+                                                    Back
+                                                </button>
+                                            )}
+                                            <button
+                                                type="button"
+                                                onClick={closeModal}
+                                                className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50"
+                                            >
+                                                Cancel
+                                            </button>
+                                            <button
+                                                type="submit"
+                                                disabled={processing}
+                                                className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 disabled:opacity-50"
+                                            >
+                                                {processing ? 'Saving...' : editingAccount ? 'Update Account' : 'Add Account'}
+                                            </button>
+                                        </div>
+                                    </form>
+                                )}
+                            </div>
                         </div>
                     </div>
                 </div>

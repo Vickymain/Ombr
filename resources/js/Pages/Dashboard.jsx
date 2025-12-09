@@ -10,16 +10,70 @@ import {
     BanknotesIcon,
     CreditCardIcon,
     ArrowPathIcon,
-    ChartBarIcon
+    ChartBarIcon,
+    XMarkIcon
 } from '@heroicons/react/24/outline';
 import { BarChart, Bar, PieChart, Pie, Cell, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { Link } from '@inertiajs/react';
 import { useRef, useState, useEffect } from 'react';
+import { useForm } from '@inertiajs/react';
+
+// Provider categories and providers
+const providerCategories = [
+    {
+        name: 'Mobile Money',
+        providers: [
+            { name: 'Mpesa', logo: '📱', apiAvailable: true, apiKey: 'mpesa' },
+        ],
+    },
+    {
+        name: 'Banking',
+        providers: [
+            { name: 'Equity Bank', logo: '🏦', apiAvailable: true, apiKey: 'equity_bank' },
+            { name: 'NCBA', logo: '🏦', apiAvailable: true, apiKey: 'ncba' },
+            { name: 'KCB Bank', logo: '🏦', apiAvailable: true, apiKey: 'kcb' },
+            { name: 'Cooperative Bank', logo: '🏦', apiAvailable: true, apiKey: 'cooperative' },
+            { name: 'Standard Chartered', logo: '🏦', apiAvailable: true, apiKey: 'standard_chartered' },
+        ],
+    },
+    {
+        name: 'Credit Cards',
+        providers: [
+            { name: 'Visa', logo: '💳', apiAvailable: true, apiKey: 'visa' },
+            { name: 'Mastercard', logo: '💳', apiAvailable: true, apiKey: 'mastercard' },
+            { name: 'American Express', logo: '💳', apiAvailable: true, apiKey: 'amex' },
+        ],
+    },
+];
+
+const accountTypes = [
+    { value: 'checking', label: 'Checking', color: 'bg-blue-100 text-blue-800' },
+    { value: 'savings', label: 'Savings', color: 'bg-green-100 text-green-800' },
+    { value: 'credit', label: 'Credit Card', color: 'bg-purple-100 text-purple-800' },
+    { value: 'investment', label: 'Investment', color: 'bg-orange-100 text-orange-800' },
+    { value: 'cash', label: 'Cash', color: 'bg-gray-100 text-gray-800' },
+    { value: 'other', label: 'Other', color: 'bg-indigo-100 text-indigo-800' },
+];
 
 export default function Dashboard({ accounts = [], recentTransactions = [], monthlyData = [], categoryData = [] }) {
     const scrollContainerRef = useRef(null);
     const [canScrollLeft, setCanScrollLeft] = useState(false);
     const [canScrollRight, setCanScrollRight] = useState(true);
+    const [isModalOpen, setIsModalOpen] = useState(false);
+    const [selectedProvider, setSelectedProvider] = useState(null);
+    const [showManualForm, setShowManualForm] = useState(false);
+
+    const { data, setData, post, processing, errors, reset } = useForm({
+        provider: '',
+        provider_api_key: '',
+        account_name: '',
+        account_number: '',
+        account_type: 'checking',
+        balance: '0.00',
+        currency: 'USD',
+        is_active: true,
+        notes: '',
+    });
 
     // Ensure monthlyData has at least 6 months of data
     const safeMonthlyData = monthlyData && monthlyData.length > 0 ? monthlyData : Array(6).fill(null).map((_, i) => {
@@ -34,6 +88,9 @@ export default function Dashboard({ accounts = [], recentTransactions = [], mont
 
     // Calculate totals
     const totalBalance = accounts.reduce((sum, acc) => sum + parseFloat(acc.balance || 0), 0);
+    const totalInvestments = accounts
+        .filter(acc => acc.account_type === 'investment')
+        .reduce((sum, acc) => sum + parseFloat(acc.balance || 0), 0);
     const thisMonthIncome = safeMonthlyData[safeMonthlyData.length - 1]?.income || 0;
     const thisMonthExpenses = safeMonthlyData[safeMonthlyData.length - 1]?.expenses || 0;
     const lastMonthIncome = safeMonthlyData[safeMonthlyData.length - 2]?.income || 1;
@@ -92,8 +149,41 @@ export default function Dashboard({ accounts = [], recentTransactions = [], mont
     // Check if user has no accounts (new user)
     const hasNoAccounts = accounts.length === 0;
 
+    const openModal = () => {
+        reset();
+        setSelectedProvider(null);
+        setShowManualForm(false);
+        setIsModalOpen(true);
+    };
+
+    const closeModal = () => {
+        setIsModalOpen(false);
+        setSelectedProvider(null);
+        setShowManualForm(false);
+        reset();
+    };
+
+    const handleProviderSelect = (provider) => {
+        setSelectedProvider(provider);
+        setData('provider', provider.name);
+        setData('provider_api_key', provider.apiKey);
+        setShowManualForm(true);
+    };
+
+    const handleShowManualForm = () => {
+        setSelectedProvider(null);
+        setShowManualForm(true);
+    };
+
+    const handleSubmit = (e) => {
+        e.preventDefault();
+        post('/accounts', {
+            onSuccess: () => closeModal(),
+        });
+    };
+
     return (
-        <AppLayout title="Dashboard">
+        <AppLayout title="Dashboard" totalBalance={totalBalance}>
             {hasNoAccounts ? (
                 /* Empty State for New Users */
                 <div className="max-w-4xl mx-auto">
@@ -137,20 +227,20 @@ export default function Dashboard({ accounts = [], recentTransactions = [], mont
                         <h2 className="text-3xl font-bold mb-4">Ready to get started?</h2>
                         <p className="text-indigo-100 mb-8 text-lg">Connect your first account and unlock powerful financial insights</p>
                         <div className="flex flex-col sm:flex-row gap-4 justify-center">
-                            <Link
-                                href="/accounts"
+                            <button
+                                onClick={openModal}
                                 className="inline-flex items-center justify-center px-8 py-4 bg-white text-indigo-600 rounded-xl font-semibold hover:bg-gray-50 transition-all transform hover:scale-105 shadow-lg"
                             >
                                 <PlusIcon className="h-6 w-6 mr-2" />
                                 Connect Your First Account
-                            </Link>
-                            <Link
-                                href="/accounts"
+                            </button>
+                            <button
+                                onClick={openModal}
                                 className="inline-flex items-center justify-center px-8 py-4 bg-indigo-700 text-white rounded-xl font-semibold hover:bg-indigo-800 transition-all border-2 border-white/20"
                             >
                                 <CreditCardIcon className="h-6 w-6 mr-2" />
                                 Add Account Manually
-                            </Link>
+                            </button>
                         </div>
                         <p className="mt-6 text-sm text-indigo-100">It only takes a few minutes to set up</p>
                     </div>
@@ -201,6 +291,31 @@ export default function Dashboard({ accounts = [], recentTransactions = [], mont
             ) : (
                 /* Regular Dashboard with Accounts */
                 <>
+            {/* Summary Strip */}
+            <div className="bg-gradient-to-r from-[#C85D3A] to-[#B85450] rounded-lg p-4 mb-6">
+                <div className="flex flex-wrap items-center justify-between gap-4 text-white">
+                    <div className="flex flex-col">
+                        <span className="text-xs font-medium opacity-90 mb-1">Total Balance</span>
+                        <span className="text-lg font-bold">${totalBalance.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                    </div>
+                    <div className="h-6 w-px bg-white/30"></div>
+                    <div className="flex flex-col">
+                        <span className="text-xs font-medium opacity-90 mb-1">Income</span>
+                        <span className="text-lg font-bold">${thisMonthIncome.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                    </div>
+                    <div className="h-6 w-px bg-white/30"></div>
+                    <div className="flex flex-col">
+                        <span className="text-xs font-medium opacity-90 mb-1">Expense</span>
+                        <span className="text-lg font-bold">${thisMonthExpenses.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                    </div>
+                    <div className="h-6 w-px bg-white/30"></div>
+                    <div className="flex flex-col">
+                        <span className="text-xs font-medium opacity-90 mb-1">Investments</span>
+                        <span className="text-lg font-bold">${totalInvestments.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                    </div>
+                </div>
+            </div>
+
             {/* Account Cards Carousel */}
             <div className="mb-8">
                 <div className="flex items-center justify-between mb-4">
@@ -224,21 +339,21 @@ export default function Dashboard({ accounts = [], recentTransactions = [], mont
                         >
                             <ChevronRightIcon className="h-5 w-5 text-gray-600" />
                         </button>
-                        <Link
-                            href="/accounts"
+                        <button
+                            onClick={openModal}
                             className="inline-flex items-center px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
                         >
                             <PlusIcon className="h-5 w-5 mr-2" />
                             Add Account
-                        </Link>
+                        </button>
                     </div>
                 </div>
 
                 {/* Scrollable Cards Container - Floating/Transparent */}
-                <div className="relative -mx-4 sm:-mx-6 lg:-mx-8">
+                <div className="relative -mx-4 sm:-mx-6 lg:-mx-8 border-b border-gray-100">
                     <div
                         ref={scrollContainerRef}
-                        className="flex space-x-6 overflow-x-auto scrollbar-hide pb-4 px-4 sm:px-6 lg:px-8"
+                        className="flex space-x-6 overflow-x-auto scrollbar-hide py-8 px-4 sm:px-6 lg:px-8"
                         style={{ 
                             scrollbarWidth: 'none', 
                             msOverflowStyle: 'none',
@@ -250,13 +365,13 @@ export default function Dashboard({ accounts = [], recentTransactions = [], mont
                                 <CreditCardIcon className="h-16 w-16 text-gray-400 mx-auto mb-4" />
                                 <h3 className="text-lg font-medium text-gray-900 mb-2">No accounts yet</h3>
                                 <p className="text-gray-500 mb-4">Add your first account to get started</p>
-                                <Link
-                                    href="/accounts"
+                                <button
+                                    onClick={openModal}
                                     className="inline-flex items-center px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
                                 >
                                     <PlusIcon className="h-5 w-5 mr-2" />
                                     Add Account
-                                </Link>
+                                </button>
                             </div>
                         ) : (
                             accounts.map((account) => (
@@ -268,78 +383,78 @@ export default function Dashboard({ accounts = [], recentTransactions = [], mont
             </div>
 
             {/* Summary Stats */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-                <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
-                    <div className="flex items-center justify-between mb-2">
-                        <span className="text-sm font-medium text-gray-600">Income</span>
-                        <div className="p-2 bg-green-100 rounded-lg">
-                            <ArrowTrendingUpIcon className="h-5 w-5 text-green-600" />
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6 border-b border-gray-100 pb-6">
+                <div className="bg-white rounded-lg p-4 border border-gray-100">
+                    <div className="flex items-center justify-between mb-1.5">
+                        <span className="text-xs font-medium text-gray-600">Income</span>
+                        <div className="p-1.5 bg-green-100 rounded">
+                            <ArrowTrendingUpIcon className="h-4 w-4 text-green-600" />
                         </div>
                     </div>
-                    <p className="text-2xl font-bold text-gray-900 mb-1">
+                    <p className="text-xl font-bold text-gray-900 mb-0.5">
                         ${thisMonthIncome.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
                     </p>
-                    <div className="flex items-center text-sm">
+                    <div className="flex items-center text-xs">
                         <span className={`font-medium ${incomeChange >= 0 ? 'text-green-600' : 'text-red-600'}`}>
                             {incomeChange >= 0 ? '+' : ''}{incomeChange}%
                         </span>
-                        <span className="text-gray-500 ml-2">vs last month</span>
+                        <span className="text-gray-500 ml-1.5">vs last month</span>
                     </div>
                 </div>
 
-                <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
-                    <div className="flex items-center justify-between mb-2">
-                        <span className="text-sm font-medium text-gray-600">Expense</span>
-                        <div className="p-2 bg-red-100 rounded-lg">
-                            <ArrowDownIcon className="h-5 w-5 text-red-600" />
+                <div className="bg-white rounded-lg p-4 border border-gray-100">
+                    <div className="flex items-center justify-between mb-1.5">
+                        <span className="text-xs font-medium text-gray-600">Expense</span>
+                        <div className="p-1.5 bg-red-100 rounded">
+                            <ArrowDownIcon className="h-4 w-4 text-red-600" />
                         </div>
                     </div>
-                    <p className="text-2xl font-bold text-gray-900 mb-1">
+                    <p className="text-xl font-bold text-gray-900 mb-0.5">
                         ${thisMonthExpenses.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
                     </p>
-                    <div className="flex items-center text-sm">
+                    <div className="flex items-center text-xs">
                         <span className={`font-medium ${expenseChange >= 0 ? 'text-red-600' : 'text-green-600'}`}>
                             {expenseChange >= 0 ? '+' : ''}{expenseChange}%
                         </span>
-                        <span className="text-gray-500 ml-2">vs last month</span>
+                        <span className="text-gray-500 ml-1.5">vs last month</span>
                     </div>
                 </div>
 
-                <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
-                    <div className="flex items-center justify-between mb-2">
-                        <span className="text-sm font-medium text-gray-600">Cashback</span>
-                        <div className="p-2 bg-purple-100 rounded-lg">
-                            <BanknotesIcon className="h-5 w-5 text-purple-600" />
+                <div className="bg-white rounded-lg p-4 border border-gray-100">
+                    <div className="flex items-center justify-between mb-1.5">
+                        <span className="text-xs font-medium text-gray-600">Cashback</span>
+                        <div className="p-1.5 bg-purple-100 rounded">
+                            <BanknotesIcon className="h-4 w-4 text-purple-600" />
                         </div>
                     </div>
-                    <p className="text-2xl font-bold text-gray-900 mb-1">
+                    <p className="text-xl font-bold text-gray-900 mb-0.5">
                         ${cashback.toLocaleString()}
                     </p>
-                    <div className="flex items-center text-sm">
+                    <div className="flex items-center text-xs">
                         <span className="font-medium text-green-600">+4.5%</span>
-                        <span className="text-gray-500 ml-2">vs last month</span>
+                        <span className="text-gray-500 ml-1.5">vs last month</span>
                     </div>
                 </div>
 
-                <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
-                    <div className="flex items-center justify-between mb-2">
-                        <span className="text-sm font-medium text-gray-600">Monthly Turnover</span>
-                        <div className="p-2 bg-blue-100 rounded-lg">
-                            <ArrowPathIcon className="h-5 w-5 text-blue-600" />
+                <div className="bg-white rounded-lg p-4 border border-gray-100">
+                    <div className="flex items-center justify-between mb-1.5">
+                        <span className="text-xs font-medium text-gray-600">Monthly Turnover</span>
+                        <div className="p-1.5 bg-blue-100 rounded">
+                            <ArrowPathIcon className="h-4 w-4 text-blue-600" />
                         </div>
                     </div>
-                    <p className="text-2xl font-bold text-gray-900 mb-1">
+                    <p className="text-xl font-bold text-gray-900 mb-0.5">
                         ${monthlyTurnover.toLocaleString()}
                     </p>
-                    <div className="flex items-center text-sm">
+                    <div className="flex items-center text-xs">
                         <span className="font-medium text-green-600">+3.1%</span>
-                        <span className="text-gray-500 ml-2">vs last month</span>
+                        <span className="text-gray-500 ml-1.5">vs last month</span>
                     </div>
                 </div>
             </div>
 
             {/* Fast Payment */}
-            <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100 mb-8">
+            <div className="bg-white rounded-xl p-6 border border-gray-100 mb-8 border-b border-gray-100 pb-8">
                 <div className="flex items-center justify-between mb-6">
                     <h3 className="text-lg font-semibold text-gray-900">Fast Payment</h3>
                     <button className="p-2 rounded-lg bg-indigo-50 text-indigo-600 hover:bg-indigo-100 transition-colors">
@@ -363,7 +478,7 @@ export default function Dashboard({ accounts = [], recentTransactions = [], mont
             {/* Bottom Section */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                 {/* Last Transactions */}
-                <div className="lg:col-span-2 bg-white rounded-xl shadow-sm border border-gray-100">
+                <div className="lg:col-span-2 bg-white rounded-xl border border-gray-100">
                     <div className="p-6 border-b border-gray-100">
                         <div className="flex items-center justify-between">
                             <h3 className="text-lg font-semibold text-gray-900">Last Transactions</h3>
@@ -422,7 +537,7 @@ export default function Dashboard({ accounts = [], recentTransactions = [], mont
 
                 {/* Top Categories */}
                 <div className="space-y-6">
-                    <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
+                    <div className="bg-white rounded-xl p-6 border border-gray-100">
                         <h3 className="text-lg font-semibold text-gray-900 mb-4">Top Categories</h3>
                         
                         {/* Spend this week */}
@@ -500,6 +615,219 @@ export default function Dashboard({ accounts = [], recentTransactions = [], mont
                 }
             `}</style>
                 </>
+            )}
+
+            {/* Add Account Modal */}
+            {isModalOpen && (
+                <div className="fixed inset-0 z-50 overflow-y-auto">
+                    <div className="flex items-center justify-center min-h-screen px-4 py-8">
+                        <div className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" onClick={closeModal} />
+
+                        <div className="relative bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+                            <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between z-10">
+                                <h3 className="text-xl font-semibold text-gray-900">
+                                    Add New Account
+                                </h3>
+                                <button
+                                    onClick={closeModal}
+                                    className="text-gray-400 hover:text-gray-600 transition-colors"
+                                >
+                                    <XMarkIcon className="h-6 w-6" />
+                                </button>
+                            </div>
+
+                            <div className="p-6">
+                                {!showManualForm ? (
+                                    <>
+                                        {/* Provider Selection */}
+                                        <div className="mb-8">
+                                            <h4 className="text-lg font-medium text-gray-900 mb-4">Select a Financial Provider</h4>
+                                            <p className="text-sm text-gray-600 mb-6">Choose from our supported providers or add manually</p>
+                                            
+                                            {providerCategories.map((category) => (
+                                                <div key={category.name} className="mb-8">
+                                                    <h5 className="text-sm font-semibold text-gray-700 mb-3 uppercase tracking-wide">
+                                                        {category.name}
+                                                    </h5>
+                                                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+                                                        {category.providers.map((provider) => (
+                                                            <button
+                                                                key={provider.apiKey}
+                                                                onClick={() => handleProviderSelect(provider)}
+                                                                className="flex flex-col items-center justify-center p-4 border-2 border-gray-200 rounded-lg hover:border-indigo-500 hover:bg-indigo-50 transition-all group"
+                                                            >
+                                                                <div className="text-4xl mb-2">{provider.logo}</div>
+                                                                <span className="text-sm font-medium text-gray-700 group-hover:text-indigo-600">
+                                                                    {provider.name}
+                                                                </span>
+                                                                {provider.apiAvailable && (
+                                                                    <span className="text-xs text-green-600 mt-1">API Ready</span>
+                                                                )}
+                                                            </button>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            ))}
+
+                                            {/* Manual Entry Option */}
+                                            <div className="mt-8 pt-6 border-t border-gray-200">
+                                                <div className="flex items-center justify-between">
+                                                    <div>
+                                                        <h5 className="text-sm font-semibold text-gray-900 mb-1">
+                                                            Don't see your provider?
+                                                        </h5>
+                                                        <p className="text-sm text-gray-600">
+                                                            Add your account manually from any financial institution
+                                                        </p>
+                                                    </div>
+                                                    <button
+                                                        onClick={handleShowManualForm}
+                                                        className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors font-medium"
+                                                    >
+                                                        Add Manually
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </>
+                                ) : (
+                                    <form onSubmit={handleSubmit} className="space-y-4">
+                                        {selectedProvider && (
+                                            <div className="mb-4 p-4 bg-indigo-50 border border-indigo-200 rounded-lg">
+                                                <div className="flex items-center">
+                                                    <span className="text-2xl mr-3">{selectedProvider.logo}</span>
+                                                    <div>
+                                                        <p className="text-sm font-medium text-indigo-900">Selected Provider</p>
+                                                        <p className="text-lg font-semibold text-indigo-700">{selectedProvider.name}</p>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        )}
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-1">Account Name</label>
+                                            <input
+                                                type="text"
+                                                value={data.account_name}
+                                                onChange={e => setData('account_name', e.target.value)}
+                                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                                                placeholder="e.g., Personal Savings"
+                                                required
+                                            />
+                                            {errors.account_name && <p className="text-red-600 text-sm mt-1">{errors.account_name}</p>}
+                                        </div>
+
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-1">Provider/Bank</label>
+                                            <input
+                                                type="text"
+                                                value={data.provider}
+                                                onChange={e => setData('provider', e.target.value)}
+                                                disabled={selectedProvider !== null}
+                                                className={`w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent ${
+                                                    selectedProvider ? 'bg-gray-50 cursor-not-allowed' : ''
+                                                }`}
+                                                placeholder="e.g., Chase Bank"
+                                                required
+                                            />
+                                            {errors.provider && <p className="text-red-600 text-sm mt-1">{errors.provider}</p>}
+                                            {selectedProvider && (
+                                                <p className="text-xs text-gray-500 mt-1">Provider selected from list (API Key: {selectedProvider.apiKey})</p>
+                                            )}
+                                        </div>
+
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-1">Account Type</label>
+                                            <select
+                                                value={data.account_type}
+                                                onChange={e => setData('account_type', e.target.value)}
+                                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                                                required
+                                            >
+                                                {accountTypes.map(type => (
+                                                    <option key={type.value} value={type.value}>{type.label}</option>
+                                                ))}
+                                            </select>
+                                        </div>
+
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-1">Account Number (optional)</label>
+                                            <input
+                                                type="text"
+                                                value={data.account_number}
+                                                onChange={e => setData('account_number', e.target.value)}
+                                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                                                placeholder="Last 4 digits"
+                                            />
+                                        </div>
+
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-1">Balance</label>
+                                            <input
+                                                type="number"
+                                                step="0.01"
+                                                value={data.balance}
+                                                onChange={e => setData('balance', e.target.value)}
+                                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                                                required
+                                            />
+                                            {errors.balance && <p className="text-red-600 text-sm mt-1">{errors.balance}</p>}
+                                        </div>
+
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-1">Notes (optional)</label>
+                                            <textarea
+                                                value={data.notes}
+                                                onChange={e => setData('notes', e.target.value)}
+                                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                                                rows="2"
+                                                placeholder="Any additional notes..."
+                                            />
+                                        </div>
+
+                                        <div className="flex items-center">
+                                            <input
+                                                type="checkbox"
+                                                checked={data.is_active}
+                                                onChange={e => setData('is_active', e.target.checked)}
+                                                className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
+                                            />
+                                            <label className="ml-2 block text-sm text-gray-700">
+                                                Active account
+                                            </label>
+                                        </div>
+
+                                        <div className="flex justify-end space-x-3 pt-4">
+                                            <button
+                                                type="button"
+                                                onClick={() => {
+                                                    setShowManualForm(false);
+                                                    setSelectedProvider(null);
+                                                }}
+                                                className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50"
+                                            >
+                                                Back
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={closeModal}
+                                                className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50"
+                                            >
+                                                Cancel
+                                            </button>
+                                            <button
+                                                type="submit"
+                                                disabled={processing}
+                                                className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 disabled:opacity-50"
+                                            >
+                                                {processing ? 'Saving...' : 'Add Account'}
+                                            </button>
+                                        </div>
+                                    </form>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+                </div>
             )}
         </AppLayout>
     );

@@ -44,8 +44,10 @@ export default function Transactions({ transactions = [], accounts = [], categor
     const expenseCategories = categories.filter(c => c.type === 'expense' || c.type === 'both');
     const currentCategories = data.type === 'income' ? incomeCategories : expenseCategories;
 
+    const totalBalance = accounts.reduce((sum, acc) => sum + parseFloat(acc.balance || 0), 0);
+
     return (
-        <AppLayout title="Transactions">
+        <AppLayout title="Transactions" totalBalance={totalBalance}>
             {/* Header */}
             <div className="flex items-center justify-between mb-6">
                 <div>
