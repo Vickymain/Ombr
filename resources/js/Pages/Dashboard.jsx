@@ -17,34 +17,7 @@ import { BarChart, Bar, PieChart, Pie, Cell, LineChart, Line, XAxis, YAxis, Cart
 import { Link } from '@inertiajs/react';
 import { useRef, useState, useEffect } from 'react';
 import { useForm } from '@inertiajs/react';
-
-// Provider categories and providers
-const providerCategories = [
-    {
-        name: 'Mobile Money',
-        providers: [
-            { name: 'Mpesa', logo: '📱', apiAvailable: true, apiKey: 'mpesa' },
-        ],
-    },
-    {
-        name: 'Banking',
-        providers: [
-            { name: 'Equity Bank', logo: '🏦', apiAvailable: true, apiKey: 'equity_bank' },
-            { name: 'NCBA', logo: '🏦', apiAvailable: true, apiKey: 'ncba' },
-            { name: 'KCB Bank', logo: '🏦', apiAvailable: true, apiKey: 'kcb' },
-            { name: 'Cooperative Bank', logo: '🏦', apiAvailable: true, apiKey: 'cooperative' },
-            { name: 'Standard Chartered', logo: '🏦', apiAvailable: true, apiKey: 'standard_chartered' },
-        ],
-    },
-    {
-        name: 'Credit Cards',
-        providers: [
-            { name: 'Visa', logo: '💳', apiAvailable: true, apiKey: 'visa' },
-            { name: 'Mastercard', logo: '💳', apiAvailable: true, apiKey: 'mastercard' },
-            { name: 'American Express', logo: '💳', apiAvailable: true, apiKey: 'amex' },
-        ],
-    },
-];
+import { providerCategories } from '../Config/providers.jsx';
 
 const accountTypes = [
     { value: 'checking', label: 'Checking', color: 'bg-blue-100 text-blue-800' },
@@ -646,25 +619,33 @@ export default function Dashboard({ accounts = [], recentTransactions = [], mont
                                             
                                             {providerCategories.map((category) => (
                                                 <div key={category.name} className="mb-8">
-                                                    <h5 className="text-sm font-semibold text-gray-700 mb-3 uppercase tracking-wide">
-                                                        {category.name}
-                                                    </h5>
+                                                    <div className="flex items-center mb-3">
+                                                        <span className="text-lg mr-2">{category.icon}</span>
+                                                        <h5 className="text-sm font-semibold text-gray-700 uppercase tracking-wide">
+                                                            {category.name}
+                                                        </h5>
+                                                    </div>
                                                     <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-                                                        {category.providers.map((provider) => (
-                                                            <button
-                                                                key={provider.apiKey}
-                                                                onClick={() => handleProviderSelect(provider)}
-                                                                className="flex flex-col items-center justify-center p-4 border-2 border-gray-200 rounded-lg hover:border-indigo-500 hover:bg-indigo-50 transition-all group"
-                                                            >
-                                                                <div className="text-4xl mb-2">{provider.logo}</div>
-                                                                <span className="text-sm font-medium text-gray-700 group-hover:text-indigo-600">
-                                                                    {provider.name}
-                                                                </span>
-                                                                {provider.apiAvailable && (
-                                                                    <span className="text-xs text-green-600 mt-1">API Ready</span>
-                                                                )}
-                                                            </button>
-                                                        ))}
+                                                        {category.providers.map((provider) => {
+                                                            const LogoComponent = provider.logo;
+                                                            return (
+                                                                <button
+                                                                    key={provider.apiKey}
+                                                                    onClick={() => handleProviderSelect(provider)}
+                                                                    className="flex flex-col items-center justify-center p-4 border-2 border-gray-200 rounded-lg hover:border-indigo-500 hover:bg-indigo-50 transition-all group"
+                                                                >
+                                                                    <div className="mb-3 flex items-center justify-center">
+                                                                        <LogoComponent />
+                                                                    </div>
+                                                                    <span className="text-sm font-medium text-gray-700 group-hover:text-indigo-600 text-center">
+                                                                        {provider.name}
+                                                                    </span>
+                                                                    {provider.apiAvailable && (
+                                                                        <span className="text-xs text-green-600 mt-1">API Ready</span>
+                                                                    )}
+                                                                </button>
+                                                            );
+                                                        })}
                                                     </div>
                                                 </div>
                                             ))}
@@ -695,7 +676,12 @@ export default function Dashboard({ accounts = [], recentTransactions = [], mont
                                         {selectedProvider && (
                                             <div className="mb-4 p-4 bg-indigo-50 border border-indigo-200 rounded-lg">
                                                 <div className="flex items-center">
-                                                    <span className="text-2xl mr-3">{selectedProvider.logo}</span>
+                                                    <div className="mr-3">
+                                                        {(() => {
+                                                            const LogoComponent = selectedProvider.logo;
+                                                            return <LogoComponent />;
+                                                        })()}
+                                                    </div>
                                                     <div>
                                                         <p className="text-sm font-medium text-indigo-900">Selected Provider</p>
                                                         <p className="text-lg font-semibold text-indigo-700">{selectedProvider.name}</p>

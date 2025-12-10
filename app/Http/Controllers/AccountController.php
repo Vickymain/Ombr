@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Account;
+use App\Models\Notification;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 
@@ -35,6 +36,15 @@ class AccountController extends Controller
         $validated['user_id'] = $request->user()->id;
 
         $account = Account::create($validated);
+
+        // Create account connected notification
+        Notification::create([
+            'user_id' => $request->user()->id,
+            'type' => 'account_connected',
+            'title' => 'New Account Connected',
+            'message' => "Your {$account->provider} account has been successfully connected.",
+            'read' => false,
+        ]);
 
         return redirect()->route('accounts.index');
     }

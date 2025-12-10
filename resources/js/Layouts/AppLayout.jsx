@@ -28,14 +28,7 @@ export default function AppLayout({ children, title, totalBalance = 0 }) {
     const page = usePage();
     const url = page.url || '';
     const auth = page.props?.auth || { user: null };
-
-    // Mock notifications - replace with backend data later
-    const [notifications, setNotifications] = useState([
-        { id: 1, title: 'New Account Connected', message: 'Your Mpesa account has been successfully connected.', time: '2 hours ago', read: false },
-        { id: 2, title: 'Budget Alert', message: 'You\'ve reached 80% of your monthly grocery budget.', time: '5 hours ago', read: false },
-        { id: 3, title: 'Transaction Completed', message: 'Payment of $150.00 to Amazon has been processed.', time: '1 day ago', read: true },
-        { id: 4, title: 'Weekly Summary', message: 'Your weekly spending summary is ready to view.', time: '2 days ago', read: true },
-    ]);
+    const notifications = page.props?.notifications || [];
 
     const unreadCount = notifications.filter(n => !n.read).length;
 
@@ -43,20 +36,38 @@ export default function AppLayout({ children, title, totalBalance = 0 }) {
         router.post('/logout');
     };
 
-    const handleNotificationClick = (notificationId) => {
-        setNotifications(prev => 
-            prev.map(notif => 
-                notif.id === notificationId 
-                    ? { ...notif, read: true }
-                    : notif
-            )
-        );
+    const handleNotificationClick = (notificationId, e) => {
+        if (e) {
+            e.stopPropagation();
+        }
+        // Only mark as read if it's not already read
+        const notification = notifications.find(n => n.id === notificationId);
+        if (notification && !notification.read) {
+            router.post(`/notifications/${notificationId}/read`, {}, {
+                preserveState: false,
+                preserveScroll: false,
+                only: ['notifications'],
+                onError: (errors) => {
+                    console.error('Error marking notification as read:', errors);
+                }
+            });
+        }
     };
 
-    const markAllAsRead = () => {
-        setNotifications(prev => 
-            prev.map(notif => ({ ...notif, read: true }))
-        );
+    const markAllAsRead = (e) => {
+        if (e) {
+            e.stopPropagation();
+        }
+        if (unreadCount > 0) {
+            router.post('/notifications/read-all', {}, {
+                preserveState: false,
+                preserveScroll: false,
+                only: ['notifications'],
+                onError: (errors) => {
+                    console.error('Error marking all notifications as read:', errors);
+                }
+            });
+        }
     };
 
     return (
@@ -65,7 +76,7 @@ export default function AppLayout({ children, title, totalBalance = 0 }) {
             {sidebarOpen && (
                 <div className="fixed inset-0 z-50 lg:hidden">
                     <div className="fixed inset-0 bg-gray-600 bg-opacity-75" onClick={() => setSidebarOpen(false)} />
-                    <div className="fixed inset-y-0 left-0 flex w-60 flex-col bg-[#FFF5F0] relative">
+                    <div className="fixed inset-y-0 left-0 flex w-60 flex-col bg-[#FFF5F0] relative z-50">
                         {/* Organic Background Shapes */}
                         <svg className="absolute inset-0 w-full h-full pointer-events-none opacity-30" viewBox="0 0 800 1000" preserveAspectRatio="xMidYMid slice">
                             <path
@@ -142,7 +153,7 @@ export default function AppLayout({ children, title, totalBalance = 0 }) {
             )}
 
             {/* Desktop sidebar */}
-            <div className="hidden lg:fixed lg:inset-y-0 lg:flex lg:w-52 lg:flex-col">
+            <div className="hidden lg:fixed lg:inset-y-0 lg:flex lg:w-52 lg:flex-col z-30">
                 <div className="flex flex-col flex-grow bg-[#FFF5F0] border-r border-gray-200 pt-5 pb-4 overflow-y-auto relative">
                     {/* Organic Background Shapes */}
                     <svg className="absolute inset-0 w-full h-full pointer-events-none opacity-30" viewBox="0 0 800 1000" preserveAspectRatio="xMidYMid slice">
@@ -171,7 +182,7 @@ export default function AppLayout({ children, title, totalBalance = 0 }) {
                         </div>
                     </div>
                     
-                    <nav className="relative z-10 mt-2 flex-1 flex flex-col space-y-1 px-2">
+                    <nav className="relative z-20 mt-2 flex-1 flex flex-col space-y-1 px-2">
                         {navigation.map((item) => {
                             const isActive = url && url.startsWith(item.href);
                             return (
@@ -183,6 +194,7 @@ export default function AppLayout({ children, title, totalBalance = 0 }) {
                                             ? 'bg-white/50 text-black'
                                             : 'text-gray-700 hover:bg-white/30'
                                     }`}
+                                    style={{ pointerEvents: 'auto' }}
                                 >
                                     <item.icon className="mr-2 h-5 w-5" />
                                     {item.name}
@@ -192,7 +204,7 @@ export default function AppLayout({ children, title, totalBalance = 0 }) {
                     </nav>
                     
                     {/* Settings and Logout at bottom */}
-                    <div className="relative z-10 mt-auto border-t border-gray-200 pt-2 px-2">
+                    <div className="relative z-20 mt-auto border-t border-gray-200 pt-2 px-2">
                         <Link
                             href="/settings"
                             className={`flex items-center px-2 py-2 text-xs font-medium rounded-lg transition-colors mb-1 ${
@@ -200,6 +212,7 @@ export default function AppLayout({ children, title, totalBalance = 0 }) {
                                     ? 'bg-white/50 text-black'
                                     : 'text-gray-700 hover:bg-white/30'
                             }`}
+                            style={{ pointerEvents: 'auto' }}
                         >
                             <Cog6ToothIcon className="mr-2 h-5 w-5" />
                             Settings
@@ -207,6 +220,7 @@ export default function AppLayout({ children, title, totalBalance = 0 }) {
                         <button
                             onClick={handleLogout}
                             className="w-full flex items-center px-2 py-2 text-xs font-medium rounded-lg transition-colors text-gray-700 hover:bg-white/30"
+                            style={{ pointerEvents: 'auto' }}
                         >
                             <ArrowRightOnRectangleIcon className="mr-2 h-5 w-5" />
                             Logout
@@ -216,7 +230,7 @@ export default function AppLayout({ children, title, totalBalance = 0 }) {
             </div>
 
             {/* Main content */}
-            <div className="lg:pl-52">
+            <div className="lg:pl-52 relative z-0">
                 <div className="sticky top-0 z-10 flex h-16 flex-shrink-0 bg-[#FFF5F0] border-b border-gray-200 relative">
                     {/* Organic Background Shapes */}
                     <svg className="absolute inset-0 w-full h-full pointer-events-none opacity-30" viewBox="0 0 800 200" preserveAspectRatio="xMidYMid slice">
@@ -269,17 +283,21 @@ export default function AppLayout({ children, title, totalBalance = 0 }) {
             {notificationsOpen && (
                 <>
                     <div 
-                        className="fixed inset-0 bg-gray-600 bg-opacity-50 z-40 lg:z-50"
+                        className="fixed inset-0 bg-transparent z-[45]"
                         onClick={() => setNotificationsOpen(false)}
+                        style={{ pointerEvents: notificationsOpen ? 'auto' : 'none' }}
                     />
-                    <div className="fixed inset-y-0 right-0 w-full sm:w-96 bg-white shadow-xl z-50 overflow-y-auto">
+                    <div 
+                        className="fixed inset-y-0 right-0 w-full sm:w-96 bg-white shadow-2xl z-[50] overflow-y-auto transform transition-transform duration-300 ease-in-out"
+                        onClick={(e) => e.stopPropagation()}
+                    >
                         <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
                             <h2 className="text-lg font-semibold text-gray-900">Notifications</h2>
                             <div className="flex items-center space-x-2">
                                 {unreadCount > 0 && (
                                     <button
                                         onClick={markAllAsRead}
-                                        className="text-xs text-[#C85D3A] hover:text-[#B85450] font-medium"
+                                        className="text-xs text-[#C85D3A] hover:text-[#B85450] font-medium transition-colors"
                                     >
                                         Mark all as read
                                     </button>
@@ -302,7 +320,7 @@ export default function AppLayout({ children, title, totalBalance = 0 }) {
                                 notifications.map((notification) => (
                                     <div
                                         key={notification.id}
-                                        onClick={() => handleNotificationClick(notification.id)}
+                                        onClick={(e) => handleNotificationClick(notification.id, e)}
                                         className={`p-4 cursor-pointer hover:bg-gray-50 transition-colors ${
                                             !notification.read ? 'bg-blue-50/30' : ''
                                         }`}
@@ -321,7 +339,7 @@ export default function AppLayout({ children, title, totalBalance = 0 }) {
                                                     {notification.message}
                                                 </p>
                                                 <p className="text-xs text-gray-400 mt-2">
-                                                    {notification.time}
+                                                    {notification.time || 'Just now'}
                                                 </p>
                                             </div>
                                         </div>

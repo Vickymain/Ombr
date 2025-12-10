@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\User;
+use App\Models\Notification;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
@@ -64,6 +65,15 @@ class AuthController extends Controller
             'name' => $request->name,
             'email' => $request->email,
             'password' => Hash::make($request->password),
+        ]);
+
+        // Create welcome notification
+        Notification::create([
+            'user_id' => $user->id,
+            'type' => 'welcome',
+            'title' => 'Welcome to Ombr!',
+            'message' => 'Thank you for joining Ombr! Start by adding your first account to get started with managing your finances.',
+            'read' => false,
         ]);
 
         Auth::login($user);

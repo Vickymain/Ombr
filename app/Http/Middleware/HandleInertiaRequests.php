@@ -44,6 +44,17 @@ class HandleInertiaRequests extends Middleware
                     'email' => $request->user()->email,
                 ] : null,
             ],
+            'notifications' => $request->user() ? $request->user()->notifications->map(function ($notification) {
+                return [
+                    'id' => $notification->id,
+                    'type' => $notification->type,
+                    'title' => $notification->title,
+                    'message' => $notification->message,
+                    'read' => (bool) $notification->read,
+                    'time' => $notification->created_at->diffForHumans(),
+                    'created_at' => $notification->created_at->toIso8601String(),
+                ];
+            })->values() : [],
         ];
     }
 }

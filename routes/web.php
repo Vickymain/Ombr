@@ -5,6 +5,7 @@ use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\AccountController;
 use App\Http\Controllers\TransactionController;
 use App\Http\Controllers\AnalyticsController;
+use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\PagesController;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
@@ -47,4 +48,8 @@ Route::middleware('auth')->group(function () {
     
     // Analytics
     Route::get('/analytics', [AnalyticsController::class, 'index'])->name('analytics.index');
+    
+    // Notifications
+    Route::post('/notifications/{id}/read', [NotificationController::class, 'markAsRead'])->name('notifications.read');
+    Route::post('/notifications/read-all', [NotificationController::class, 'markAllAsRead'])->name('notifications.read-all');
 });
