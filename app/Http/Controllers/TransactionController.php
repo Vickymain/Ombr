@@ -59,6 +59,125 @@ class TransactionController extends Controller
         return redirect()->route('transactions.index');
     }
 
+    /**
+     * Import transactions from a CSV statement file.
+     */
+    public function import(Request $request)
+    {
+        $validated = $request->validate([
+            'account_id' => 'required|exists:accounts,id',
+            'file' => 'required|file|mimes:csv,txt',
+        ]);
+
+        $user = $request->user();
+        $account = $user->accounts()->findOrFail($validated['account_id']);
+
+        $path = $request->file('file')->getRealPath();
+
+        if ($path === false) {
+            return back()->withErrors(['file' => 'Unable to read uploaded file.']);
+        }
+
+        $handle = fopen($path, 'r');
+
+        if ($handle === false) {
+            return back()->withErrors(['file' => 'Unable to open uploaded file.']);
+        }
+
+        $header = fgetcsv($handle);
+
+        if ($header === false) {
+            fclose($handle);
+            return back()->withErrors(['file' => 'The uploaded file appears to be empty.']);
+        }
+
+        $header = array_map('strtolower', $header);
+
+        $dateIndex = array_search('date', $header);
+        $descriptionIndex = array_search('description', $header);
+        $amountIndex = array_search('amount', $header);
+        $typeIndex = array_search('type', $header);
+
+        if ($dateIndex === false || $amountIndex === false) {
+            fclose($handle);
+            return back()->withErrors([
+                'file' => 'CSV must include at least "date" and "amount" columns in the header row.',
+            ]);
+        }
+
+        $createdCount = 0;
+
+        while (($row = fgetcsv($handle)) !== false) {
+            if (count($row) < max($dateIndex, $amountIndex, (int) $descriptionIndex, (int) $typeIndex) + 1) {
+                continue;
+            }
+
+            $rawDate = $row[$dateIndex] ?? null;
+            $rawAmount = $row[$amountIndex] ?? null;
+
+            if ($rawDate === null || $rawAmount === null || $rawDate === '' || $rawAmount === '') {
+                continue;
+            }
+
+            $amount = (float) str_replace([',', ' '], ['', ''], $rawAmount);
+
+            if ($amount === 0.0) {
+                continue;
+            }
+
+            $description = $descriptionIndex !== false ? ($row[$descriptionIndex] ?? null) : null;
+            $rawType = $typeIndex !== false ? strtolower((string) ($row[$typeIndex] ?? '')) : '';
+
+            $type = 'expense';
+
+            if ($rawType === 'income' || $rawType === 'credit') {
+                $type = 'income';
+            } elseif ($rawType === 'expense' || $rawType === 'debit') {
+                $type = 'expense';
+            } elseif ($amount > 0) {
+                $type = 'income';
+            }
+
+            if ($type === 'expense' && $amount > 0) {
+                $signedAmount = $amount;
+            } elseif ($type === 'income' && $amount < 0) {
+                $signedAmount = -$amount;
+            } else {
+                $signedAmount = abs($amount);
+            }
+
+            $transaction = Transaction::create([
+                'user_id' => $user->id,
+                'account_id' => $account->id,
+                'type' => $type,
+                'amount' => $signedAmount,
+                'category' => 'Imported',
+                'description' => $description,
+                'transaction_date' => $rawDate,
+                'payment_method' => null,
+                'reference_number' => null,
+                'is_recurring' => false,
+                'recurring_frequency' => null,
+                'notes' => null,
+            ]);
+
+            if ($type === 'income') {
+                $account->balance += $transaction->amount;
+            } elseif ($type === 'expense') {
+                $account->balance -= $transaction->amount;
+            }
+
+            $createdCount++;
+        }
+
+        fclose($handle);
+        $account->save();
+
+        return redirect()
+            ->route('transactions.index')
+            ->with('success', $createdCount . ' transactions imported successfully.');
+    }
+
     // Update a transaction
     public function update(Request $request, $id)
     {

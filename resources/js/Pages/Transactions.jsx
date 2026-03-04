@@ -1,10 +1,11 @@
 import { useState } from 'react';
 import AppLayout from '../Layouts/AppLayout';
 import { PlusIcon, FunnelIcon, ArrowUpIcon, ArrowDownIcon } from '@heroicons/react/24/outline';
-import { useForm } from '@inertiajs/react';
+import { useForm, router } from '@inertiajs/react';
 
 export default function Transactions({ transactions = [], accounts = [], categories = [] }) {
     const [isModalOpen, setIsModalOpen] = useState(false);
+    const [isImportModalOpen, setIsImportModalOpen] = useState(false);
     const [filterType, setFilterType] = useState('all');
 
     const { data, setData, post, processing, errors, reset } = useForm({
@@ -18,6 +19,10 @@ export default function Transactions({ transactions = [], accounts = [], categor
         notes: '',
     });
 
+    const [importAccountId, setImportAccountId] = useState(accounts[0]?.id || '');
+    const [importFile, setImportFile] = useState(null);
+    const [importError, setImportError] = useState('');
+
     const openModal = () => {
         reset();
         setIsModalOpen(true);
@@ -26,6 +31,19 @@ export default function Transactions({ transactions = [], accounts = [], categor
     const closeModal = () => {
         setIsModalOpen(false);
         reset();
+    };
+
+    const openImportModal = () => {
+        setImportAccountId(accounts[0]?.id || '');
+        setImportFile(null);
+        setImportError('');
+        setIsImportModalOpen(true);
+    };
+
+    const closeImportModal = () => {
+        setIsImportModalOpen(false);
+        setImportFile(null);
+        setImportError('');
     };
 
     const handleSubmit = (e) => {
@@ -54,13 +72,22 @@ export default function Transactions({ transactions = [], accounts = [], categor
                     <h1 className="text-2xl font-bold text-gray-900">Transactions</h1>
                     <p className="mt-1 text-sm text-gray-600">Track your income and expenses</p>
                 </div>
-                <button
-                    onClick={openModal}
-                    className="inline-flex items-center px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
-                >
-                    <PlusIcon className="h-5 w-5 mr-2" />
-                    Add Transaction
-                </button>
+                <div className="flex items-center space-x-3">
+                    <button
+                        onClick={openImportModal}
+                        className="inline-flex items-center px-4 py-2 bg-white text-indigo-600 border border-indigo-200 rounded-lg hover:bg-indigo-50 transition-colors"
+                    >
+                        <PlusIcon className="h-5 w-5 mr-2" />
+                        Import CSV
+                    </button>
+                    <button
+                        onClick={openModal}
+                        className="inline-flex items-center px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
+                    >
+                        <PlusIcon className="h-5 w-5 mr-2" />
+                        Add Transaction
+                    </button>
+                </div>
             </div>
 
             {/* Filters */}
@@ -314,6 +341,118 @@ export default function Transactions({ transactions = [], accounts = [], categor
                                     </button>
                                 </div>
                             </form>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Import CSV Modal */}
+            {isImportModalOpen && (
+                <div className="fixed inset-0 z-50 overflow-y-auto">
+                    <div className="flex items-center justify-center min-h-screen px-4">
+                        <div
+                            className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity"
+                            onClick={closeImportModal}
+                        />
+
+                        <div className="relative bg-white rounded-lg shadow-xl max-w-lg w-full p-6">
+                            <h3 className="text-lg font-semibold text-gray-900 mb-4">
+                                Import Transactions from CSV
+                            </h3>
+                            <p className="text-sm text-gray-600 mb-4">
+                                Upload a CSV file with columns like <span className="font-mono">date, description, amount, type</span>.
+                                We&apos;ll create transactions for the selected account.
+                            </p>
+
+                            <div className="space-y-4">
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                                        Account
+                                    </label>
+                                    <select
+                                        value={importAccountId}
+                                        onChange={(e) => setImportAccountId(e.target.value)}
+                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                                    >
+                                        {accounts.map((account) => (
+                                            <option key={account.id} value={account.id}>
+                                                {account.account_name} - {account.provider}
+                                            </option>
+                                        ))}
+                                    </select>
+                                </div>
+
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                                        CSV File
+                                    </label>
+                                    <input
+                                        type="file"
+                                        accept=".csv,text/csv"
+                                        onChange={(e) => {
+                                            setImportFile(e.target.files?.[0] || null);
+                                            setImportError('');
+                                        }}
+                                        className="w-full text-sm text-gray-700"
+                                    />
+                                    {importError && (
+                                        <p className="mt-1 text-sm text-red-600">{importError}</p>
+                                    )}
+                                </div>
+
+                                <div className="text-xs text-gray-500 bg-gray-50 rounded-lg p-3">
+                                    Example header:
+                                    <span className="font-mono block mt-1">
+                                        date,description,amount,type
+                                    </span>
+                                    <span className="block mt-1">
+                                        Type can be <span className="font-mono">income</span>,{' '}
+                                        <span className="font-mono">expense</span>,{' '}
+                                        <span className="font-mono">credit</span>, or{' '}
+                                        <span className="font-mono">debit</span>. If type is missing, positive
+                                        amounts are treated as income and negative as expense.
+                                    </span>
+                                </div>
+
+                                <div className="flex justify-end space-x-3 pt-4">
+                                    <button
+                                        type="button"
+                                        onClick={closeImportModal}
+                                        className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50"
+                                    >
+                                        Cancel
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            if (!importFile) {
+                                                setImportError('Please choose a CSV file to upload.');
+                                                return;
+                                            }
+
+                                            const formData = new FormData();
+                                            formData.append('account_id', importAccountId);
+                                            formData.append('file', importFile);
+
+                                            router.post('/transactions/import', formData, {
+                                                forceFormData: true,
+                                                onError: (errs) => {
+                                                    setImportError(
+                                                        errs.file ||
+                                                            'There was a problem importing the file.'
+                                                    );
+                                                },
+                                                onSuccess: () => {
+                                                    closeImportModal();
+                                                },
+                                            });
+                                        }}
+                                        className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-lg hover:bg-indigo-700"
+                                    >
+                                        Import
+                                    </button>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>

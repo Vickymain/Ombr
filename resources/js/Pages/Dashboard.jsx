@@ -35,10 +35,11 @@ export default function Dashboard({ accounts = [], recentTransactions = [], mont
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [selectedProvider, setSelectedProvider] = useState(null);
     const [showManualForm, setShowManualForm] = useState(false);
+    const [isProcessingModalOpen, setIsProcessingModalOpen] = useState(false);
+    const [processingStep, setProcessingStep] = useState('idle');
 
     const { data, setData, post, processing, errors, reset } = useForm({
         provider: '',
-        provider_api_key: '',
         account_name: '',
         account_number: '',
         account_type: 'checking',
@@ -46,6 +47,7 @@ export default function Dashboard({ accounts = [], recentTransactions = [], mont
         currency: 'USD',
         is_active: true,
         notes: '',
+        statement_file: null,
     });
 
     // Ensure monthlyData has at least 6 months of data
@@ -139,7 +141,6 @@ export default function Dashboard({ accounts = [], recentTransactions = [], mont
     const handleProviderSelect = (provider) => {
         setSelectedProvider(provider);
         setData('provider', provider.name);
-        setData('provider_api_key', provider.apiKey);
         setShowManualForm(true);
     };
 
@@ -150,8 +151,36 @@ export default function Dashboard({ accounts = [], recentTransactions = [], mont
 
     const handleSubmit = (e) => {
         e.preventDefault();
+
+        const hasFile = !!data.statement_file;
+        let stepTimer;
+
+        if (hasFile) {
+            setProcessingStep('uploading');
+            setIsProcessingModalOpen(true);
+            stepTimer = window.setTimeout(() => {
+                setProcessingStep('processing');
+            }, 900);
+        }
+
         post('/accounts', {
-            onSuccess: () => closeModal(),
+            forceFormData: hasFile,
+            onSuccess: () => {
+                if (stepTimer) {
+                    window.clearTimeout(stepTimer);
+                }
+                if (hasFile) {
+                    setProcessingStep('done');
+                } else {
+                    closeModal();
+                }
+            },
+            onError: () => {
+                if (stepTimer) {
+                    window.clearTimeout(stepTimer);
+                }
+                setIsProcessingModalOpen(false);
+            },
         });
     };
 
@@ -615,7 +644,7 @@ export default function Dashboard({ accounts = [], recentTransactions = [], mont
                                         {/* Provider Selection */}
                                         <div className="mb-8">
                                             <h4 className="text-lg font-medium text-gray-900 mb-4">Select a Financial Provider</h4>
-                                            <p className="text-sm text-gray-600 mb-6">Choose from our supported providers or add manually</p>
+                                            <p className="text-sm text-gray-600 mb-6">Choose your provider, then enter your account details and transactions manually.</p>
                                             
                                             {providerCategories.map((category) => (
                                                 <div key={category.name} className="mb-8">
@@ -640,9 +669,6 @@ export default function Dashboard({ accounts = [], recentTransactions = [], mont
                                                                     <span className="text-sm font-medium text-gray-700 group-hover:text-indigo-600 text-center">
                                                                         {provider.name}
                                                                     </span>
-                                                                    {provider.apiAvailable && (
-                                                                        <span className="text-xs text-green-600 mt-1">API Ready</span>
-                                                                    )}
                                                                 </button>
                                                             );
                                                         })}
@@ -717,7 +743,7 @@ export default function Dashboard({ accounts = [], recentTransactions = [], mont
                                             />
                                             {errors.provider && <p className="text-red-600 text-sm mt-1">{errors.provider}</p>}
                                             {selectedProvider && (
-                                                <p className="text-xs text-gray-500 mt-1">Provider selected from list (API Key: {selectedProvider.apiKey})</p>
+                                                <p className="text-xs text-gray-500 mt-1">Provider selected from list. You&apos;ll add data manually; live API connections are not yet available.</p>
                                             )}
                                         </div>
 
@@ -757,6 +783,25 @@ export default function Dashboard({ accounts = [], recentTransactions = [], mont
                                                 required
                                             />
                                             {errors.balance && <p className="text-red-600 text-sm mt-1">{errors.balance}</p>}
+                                        </div>
+
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-1">Statement CSV (optional)</label>
+                                            <input
+                                                type="file"
+                                                accept=".csv,text/csv"
+                                                onChange={(e) => {
+                                                    const file = e.target.files?.[0] || null;
+                                                    setData('statement_file', file);
+                                                }}
+                                                className="w-full text-sm text-gray-700"
+                                            />
+                                            {errors.statement_file && (
+                                                <p className="text-red-600 text-sm mt-1">{errors.statement_file}</p>
+                                            )}
+                                            <p className="mt-1 text-xs text-gray-500">
+                                                Upload a CSV statement (e.g. from Mpesa or your bank) with columns like <span className="font-mono">date, description, amount, type</span> to auto-load transactions.
+                                            </p>
                                         </div>
 
                                         <div>
@@ -812,6 +857,47 @@ export default function Dashboard({ accounts = [], recentTransactions = [], mont
                                 )}
                             </div>
                         </div>
+                    </div>
+                </div>
+            )}
+            {isProcessingModalOpen && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+                    <div className="bg-white rounded-2xl shadow-xl max-w-sm w-full p-6 text-center">
+                        {processingStep !== 'done' && (
+                            <>
+                                <div className="mx-auto mb-4 h-12 w-12 rounded-full border-4 border-indigo-200 border-t-indigo-600 animate-spin" />
+                                <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                                    {processingStep === 'uploading' ? 'Uploading statement...' : 'Processing transactions...'}
+                                </h3>
+                                <p className="text-sm text-gray-600">
+                                    We&apos;re reading your statement and updating your account insights. This may take a few seconds.
+                                </p>
+                            </>
+                        )}
+                        {processingStep === 'done' && (
+                            <>
+                                <div className="mx-auto mb-4 h-12 w-12 rounded-full bg-emerald-100 flex items-center justify-center">
+                                    <span className="text-emerald-600 text-2xl">✓</span>
+                                </div>
+                                <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                                    Done!
+                                </h3>
+                                <p className="text-sm text-gray-600 mb-4">
+                                    Your account and transactions have been imported. You can now explore your updated insights.
+                                </p>
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        setIsProcessingModalOpen(false);
+                                        setProcessingStep('idle');
+                                        closeModal();
+                                    }}
+                                    className="inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-lg hover:bg-indigo-700"
+                                >
+                                    OK
+                                </button>
+                            </>
+                        )}
                     </div>
                 </div>
             )}

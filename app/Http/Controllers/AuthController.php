@@ -29,7 +29,7 @@ class AuthController extends Controller
             ],
             'email' => [
                 'required',
-                'email:rfc,dns',
+                'email:rfc',
                 'unique:users,email',
                 function ($attribute, $value, $fail) {
                     // Only allow specific email domains
@@ -44,7 +44,7 @@ class AuthController extends Controller
                     $domain = strtolower($parts[1]);
                     
                     if (!in_array($domain, $allowedDomains)) {
-                        $fail('Please enter a valid email address from an allowed domain.');
+                        $fail('Please enter a valid email address from an allowed domain (e.g. gmail.com, yahoo.com, outlook.com).');
                     }
                 },
             ],
@@ -56,7 +56,7 @@ class AuthController extends Controller
             ]
         ], [
             'name.regex' => 'Full name must contain at least first name and last name, each with at least 2 characters.',
-            'email.email' => 'Only @gmail.com and @yahoo.com email addresses are allowed.',
+            'email.email' => 'Please enter a valid email address from an allowed domain (e.g. gmail.com, yahoo.com, outlook.com).',
             'password.min' => 'Password must be at least 8 characters long.',
             'password.regex' => 'Password must contain at least one uppercase letter, one lowercase letter, one number, and one special character (@$!%*?&#).',
         ]);
