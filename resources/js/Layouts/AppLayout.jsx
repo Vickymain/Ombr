@@ -1,5 +1,5 @@
 import { Link, usePage, router } from '@inertiajs/react';
-import { Fragment, useState } from 'react';
+import { Fragment, useState, useEffect } from 'react';
 import {
     HomeIcon,
     CreditCardIcon,
@@ -25,12 +25,22 @@ const navigation = [
 export default function AppLayout({ children, title, totalBalance = 0 }) {
     const [sidebarOpen, setSidebarOpen] = useState(false);
     const [notificationsOpen, setNotificationsOpen] = useState(false);
+    const [toastMessage, setToastMessage] = useState(null);
     const page = usePage();
     const url = page.url || '';
     const auth = page.props?.auth || { user: null };
     const notifications = page.props?.notifications || [];
+    const flash = page.props?.flash || {};
 
     const unreadCount = notifications.filter(n => !n.read).length;
+
+    useEffect(() => {
+        if (flash.success) {
+            setToastMessage(flash.success);
+            const timeout = setTimeout(() => setToastMessage(null), 4000);
+            return () => clearTimeout(timeout);
+        }
+    }, [flash.success]);
 
     const handleLogout = () => {
         router.post('/logout');
@@ -349,6 +359,15 @@ export default function AppLayout({ children, title, totalBalance = 0 }) {
                         </div>
                     </div>
                 </>
+            )}
+
+            {toastMessage && (
+                <div className="fixed bottom-4 right-4 z-[60]">
+                    <div className="bg-black text-white text-sm px-4 py-3 rounded-lg shadow-lg max-w-xs flex items-start space-x-2">
+                        <span className="mt-0.5">✓</span>
+                        <span>{toastMessage}</span>
+                    </div>
+                </div>
             )}
         </div>
     );

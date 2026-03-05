@@ -4,12 +4,16 @@ namespace App\Http\Controllers;
 
 use App\Models\Account;
 use App\Models\Notification;
-use App\Models\Transaction;
+use App\Services\StatementImportService;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 
 class AccountController extends Controller
 {
+    public function __construct(
+        protected StatementImportService $statementImportService,
+    ) {
+    }
     // Get all accounts
     public function index(Request $request)
     {
@@ -32,7 +36,8 @@ class AccountController extends Controller
             'currency' => 'nullable|string',
             'is_active' => 'boolean',
             'notes' => 'nullable|string',
-            'statement_file' => 'nullable|file|mimes:csv,txt',
+            'statement_files' => 'nullable|array|max:5',
+            'statement_files.*' => 'file|mimes:csv,txt,pdf',
         ]);
 
         $validated['user_id'] = $request->user()->id;
@@ -48,93 +53,37 @@ class AccountController extends Controller
             'read' => false,
         ]);
 
-        // If a statement file was uploaded, import transactions for this account
-        if ($request->hasFile('statement_file')) {
-            $file = $request->file('statement_file');
-            $path = $file->getRealPath();
+        $importedCount = null;
 
-            if ($path !== false) {
-                $handle = fopen($path, 'r');
-
-                if ($handle !== false) {
-                    $header = fgetcsv($handle);
-
-                    if ($header !== false) {
-                        $header = array_map('strtolower', $header);
-
-                        $dateIndex = array_search('date', $header);
-                        $descriptionIndex = array_search('description', $header);
-                        $amountIndex = array_search('amount', $header);
-                        $typeIndex = array_search('type', $header);
-
-                        if ($dateIndex !== false && $amountIndex !== false) {
-                            $user = $request->user();
-
-                            while (($row = fgetcsv($handle)) !== false) {
-                                if (count($row) < max($dateIndex, $amountIndex, (int) $descriptionIndex, (int) $typeIndex) + 1) {
-                                    continue;
-                                }
-
-                                $rawDate = $row[$dateIndex] ?? null;
-                                $rawAmount = $row[$amountIndex] ?? null;
-
-                                if ($rawDate === null || $rawAmount === null || $rawDate === '' || $rawAmount === '') {
-                                    continue;
-                                }
-
-                                $amount = (float) str_replace([',', ' '], ['', ''], $rawAmount);
-
-                                if ($amount === 0.0) {
-                                    continue;
-                                }
-
-                                $description = $descriptionIndex !== false ? ($row[$descriptionIndex] ?? null) : null;
-                                $rawType = $typeIndex !== false ? strtolower((string) ($row[$typeIndex] ?? '')) : '';
-
-                                $type = 'expense';
-
-                                if ($rawType === 'income' || $rawType === 'credit') {
-                                    $type = 'income';
-                                } elseif ($rawType === 'expense' || $rawType === 'debit') {
-                                    $type = 'expense';
-                                } elseif ($amount > 0) {
-                                    $type = 'income';
-                                }
-
-                                $signedAmount = abs($amount);
-
-                                $transaction = Transaction::create([
-                                    'user_id' => $user->id,
-                                    'account_id' => $account->id,
-                                    'type' => $type,
-                                    'amount' => $signedAmount,
-                                    'category' => 'Imported',
-                                    'description' => $description,
-                                    'transaction_date' => $rawDate,
-                                    'payment_method' => null,
-                                    'reference_number' => null,
-                                    'is_recurring' => false,
-                                    'recurring_frequency' => null,
-                                    'notes' => null,
-                                ]);
-
-                                if ($type === 'income') {
-                                    $account->balance += $transaction->amount;
-                                } elseif ($type === 'expense') {
-                                    $account->balance -= $transaction->amount;
-                                }
-                            }
-
-                            $account->save();
-                        }
-                    }
-
-                    fclose($handle);
+        // If statement files were uploaded, import transactions for this account
+        if ($request->hasFile('statement_files')) {
+            $importedCount = 0;
+            foreach ($request->file('statement_files') as $file) {
+                try {
+                    $importedCount += $this->statementImportService->importFromUploadedFile(
+                        $file,
+                        $request->user(),
+                        $account,
+                    );
+                } catch (\Throwable $e) {
+                    return redirect()
+                        ->route('accounts.index')
+                        ->withErrors([
+                            'statement_files' => 'We could not read one of the statement files. Please check the formats (CSV or PDF) and try again.',
+                        ]);
                 }
             }
         }
 
-        return redirect()->route('accounts.index');
+        $message = 'Account created successfully.';
+
+        if ($importedCount !== null) {
+            $message = $importedCount > 0
+                ? "Account created and {$importedCount} transactions imported."
+                : 'Account created, but no transactions were found in the statement.';
+        }
+
+        return redirect()->route('accounts.index')->with('success', $message);
     }
 
     // Update an account

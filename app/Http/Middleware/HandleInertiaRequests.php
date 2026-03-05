@@ -55,6 +55,10 @@ class HandleInertiaRequests extends Middleware
                     'created_at' => $notification->created_at->toIso8601String(),
                 ];
             })->values() : [],
+            'flash' => [
+                'success' => $request->session()->get('success'),
+                'error' => $request->session()->get('error'),
+            ],
         ];
     }
 }

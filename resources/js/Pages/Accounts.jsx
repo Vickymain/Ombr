@@ -1,6 +1,9 @@
 import { useState } from 'react';
 import AppLayout from '../Layouts/AppLayout';
-import { PlusIcon } from '@heroicons/react/24/outline';
+import AccountCard from '../Components/AccountCard';
+import FileUploadZone from '../Components/FileUploadZone';
+import { PROVIDER_CATEGORIES } from '../data/providers';
+import { PlusIcon, XMarkIcon } from '@heroicons/react/24/outline';
 import { useForm } from '@inertiajs/react';
 
 const accountTypes = [
@@ -14,6 +17,7 @@ const accountTypes = [
 
 export default function Accounts({ accounts = [] }) {
     const [isModalOpen, setIsModalOpen] = useState(false);
+    const [showOtherProvider, setShowOtherProvider] = useState(false);
 
     const { data, setData, post, processing, errors, reset } = useForm({
         provider: '',
@@ -21,7 +25,7 @@ export default function Accounts({ accounts = [] }) {
         account_number: '',
         account_type: 'checking',
         balance: '0.00',
-        statement_file: null,
+        statement_files: [],
     });
 
     const totalBalance = accounts.reduce(
@@ -31,6 +35,7 @@ export default function Accounts({ accounts = [] }) {
 
     const openModal = () => {
         reset();
+        setShowOtherProvider(false);
         setIsModalOpen(true);
     };
 
@@ -42,9 +47,9 @@ export default function Accounts({ accounts = [] }) {
     const handleSubmit = (e) => {
         e.preventDefault();
 
-        const hasFile = !!data.statement_file;
+        const hasFiles = data.statement_files && data.statement_files.length > 0;
         const formOptions = {
-            forceFormData: hasFile,
+            forceFormData: hasFiles,
             onSuccess: () => {
                 closeModal();
             },
@@ -88,35 +93,25 @@ export default function Accounts({ accounts = [] }) {
                 </p>
             </div>
 
-            {/* Accounts list (simple) */}
-            <div className="bg-white rounded-lg shadow divide-y divide-gray-100">
+            {/* Accounts as provider-styled cards */}
+            <div className="bg-transparent">
                 {accounts.length === 0 ? (
-                    <div className="px-6 py-10 text-center text-gray-500">
-                        No accounts yet. Click &quot;Add Account&quot; to get started.
+                    <div className="bg-white rounded-xl border-2 border-dashed border-gray-200 px-6 py-12 text-center text-gray-500">
+                        <p className="mb-4">No accounts yet. Click &quot;Add Account&quot; to get started.</p>
+                        <button
+                            onClick={openModal}
+                            className="inline-flex items-center px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
+                        >
+                            <PlusIcon className="h-5 w-5 mr-2" />
+                            Add Account
+                        </button>
                     </div>
                 ) : (
-                    accounts.map((account) => (
-                        <div
-                            key={account.id}
-                            className="px-6 py-4 flex items-center justify-between"
-                        >
-                            <div>
-                                <p className="text-sm font-semibold text-gray-900">
-                                    {account.account_name}
-                                </p>
-                                <p className="text-xs text-gray-500">
-                                    {account.provider} • {account.account_type}
-                                </p>
-                            </div>
-                            <p className="text-lg font-bold text-gray-900">
-                                $
-                                {parseFloat(account.balance).toLocaleString('en-US', {
-                                    minimumFractionDigits: 2,
-                                    maximumFractionDigits: 2,
-                                })}
-                            </p>
-                        </div>
-                    ))
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                        {accounts.map((account) => (
+                            <AccountCard key={account.id} account={account} />
+                        ))}
+                    </div>
                 )}
             </div>
 
@@ -129,100 +124,122 @@ export default function Accounts({ accounts = [] }) {
                             onClick={closeModal}
                         />
 
-                        <div className="relative bg-white rounded-lg shadow-xl max-w-lg w-full max-h-[90vh] overflow-y-auto">
+                        <div className="relative bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
                             <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between z-10">
                                 <h3 className="text-xl font-semibold text-gray-900">
                                     Add New Account
                                 </h3>
                                 <button
                                     onClick={closeModal}
-                                    className="text-gray-400 hover:text-gray-600 transition-colors"
+                                    className="text-gray-400 hover:text-gray-600 transition-colors p-1"
                                 >
-                                    ×
+                                    <XMarkIcon className="h-6 w-6" />
                                 </button>
                             </div>
 
                             <div className="p-6">
                                 <form onSubmit={handleSubmit} className="space-y-4">
                                     <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                                            Account Name
+                                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                                            Provider / Bank
                                         </label>
+                                        <div className="space-y-4">
+                                            {PROVIDER_CATEGORIES.map((category) => (
+                                                <div key={category.id}>
+                                                    <div className="flex items-center gap-2 mb-2">
+                                                        <span className="text-base">{category.icon}</span>
+                                                        <span className="text-xs font-semibold text-gray-600 uppercase tracking-wide">{category.name}</span>
+                                                    </div>
+                                                    <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
+                                                        {category.providers.map((p) => {
+                                                            const isSelected = data.provider === p.name && !showOtherProvider;
+                                                            return (
+                                                                <button
+                                                                    key={p.id}
+                                                                    type="button"
+                                                                    onClick={() => {
+                                                                        setData('provider', p.name);
+                                                                        setShowOtherProvider(false);
+                                                                    }}
+                                                                    className={`flex flex-col items-center justify-center p-3 rounded-xl border-2 transition-all ${
+                                                                        isSelected ? 'border-indigo-500 bg-indigo-50' : 'border-gray-200 bg-white hover:border-indigo-300 hover:bg-gray-50'
+                                                                    }`}
+                                                                >
+                                                                    <div
+                                                                        className="w-10 h-10 rounded-lg flex items-center justify-center text-white text-sm font-bold mb-1"
+                                                                        style={{ background: p.cardStyle.bg }}
+                                                                    >
+                                                                        {p.initial}
+                                                                    </div>
+                                                                    <span className="text-xs font-medium text-gray-700 truncate w-full text-center">{p.name}</span>
+                                                                </button>
+                                                            );
+                                                        })}
+                                                    </div>
+                                                </div>
+                                            ))}
+                                            <div className="pt-2">
+                                                <button
+                                                    type="button"
+                                                    onClick={() => { setShowOtherProvider(true); setData('provider', ''); }}
+                                                    className="text-xs text-indigo-600 hover:text-indigo-800 font-medium"
+                                                >
+                                                    Other provider? Type below
+                                                </button>
+                                                {showOtherProvider && (
+                                                    <input
+                                                        type="text"
+                                                        value={data.provider}
+                                                        onChange={(e) => setData('provider', e.target.value)}
+                                                        placeholder="e.g. My Bank"
+                                                        className="mt-2 w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm"
+                                                    />
+                                                )}
+                                            </div>
+                                        </div>
+                                        {errors.provider && <p className="text-red-600 text-sm mt-1">{errors.provider}</p>}
+                                    </div>
+
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">Account Name</label>
                                         <input
                                             type="text"
                                             value={data.account_name}
-                                            onChange={(e) =>
-                                                setData('account_name', e.target.value)
-                                            }
+                                            onChange={(e) => setData('account_name', e.target.value)}
                                             className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                                             placeholder="e.g., Mpesa Personal"
                                             required
                                         />
-                                        {errors.account_name && (
-                                            <p className="text-red-600 text-sm mt-1">
-                                                {errors.account_name}
-                                            </p>
-                                        )}
+                                        {errors.account_name && <p className="text-red-600 text-sm mt-1">{errors.account_name}</p>}
                                     </div>
 
                                     <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                                            Provider / Bank
-                                        </label>
-                                        <input
-                                            type="text"
-                                            value={data.provider}
-                                            onChange={(e) => setData('provider', e.target.value)}
-                                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                                            placeholder="e.g., Mpesa, Equity, KCB"
-                                            required
-                                        />
-                                        {errors.provider && (
-                                            <p className="text-red-600 text-sm mt-1">
-                                                {errors.provider}
-                                            </p>
-                                        )}
-                                    </div>
-
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                                            Account Type
-                                        </label>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">Account Type</label>
                                         <select
                                             value={data.account_type}
-                                            onChange={(e) =>
-                                                setData('account_type', e.target.value)
-                                            }
+                                            onChange={(e) => setData('account_type', e.target.value)}
                                             className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                                             required
                                         >
                                             {accountTypes.map((t) => (
-                                                <option key={t.value} value={t.value}>
-                                                    {t.label}
-                                                </option>
+                                                <option key={t.value} value={t.value}>{t.label}</option>
                                             ))}
                                         </select>
                                     </div>
 
                                     <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                                            Account Number (optional)
-                                        </label>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">Account Number (optional)</label>
                                         <input
                                             type="text"
                                             value={data.account_number}
-                                            onChange={(e) =>
-                                                setData('account_number', e.target.value)
-                                            }
+                                            onChange={(e) => setData('account_number', e.target.value)}
                                             className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                                             placeholder="Last 4 digits"
                                         />
                                     </div>
 
                                     <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                                            Current Balance
-                                        </label>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">Current Balance</label>
                                         <input
                                             type="number"
                                             step="0.01"
@@ -231,40 +248,22 @@ export default function Accounts({ accounts = [] }) {
                                             className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                                             required
                                         />
-                                        {errors.balance && (
-                                            <p className="text-red-600 text-sm mt-1">
-                                                {errors.balance}
-                                            </p>
-                                        )}
+                                        {errors.balance && <p className="text-red-600 text-sm mt-1">{errors.balance}</p>}
                                     </div>
 
                                     <div>
                                         <label className="block text-sm font-medium text-gray-700 mb-1">
-                                            Transaction Log (CSV)
+                                            Transaction Logs (CSV or PDF, up to 5 files) <span className="text-red-500">*</span>
                                         </label>
-                                        <input
-                                            type="file"
-                                            accept=".csv,text/csv"
-                                            onChange={(e) => {
-                                                const file = e.target.files?.[0] || null;
-                                                setData('statement_file', file);
-                                            }}
-                                            className="w-full text-sm text-gray-700"
+                                        <FileUploadZone
+                                            value={data.statement_files}
+                                            onChange={(files) => setData('statement_files', files)}
+                                            maxFiles={5}
                                             required
                                         />
-                                        {errors.statement_file && (
-                                            <p className="text-red-600 text-sm mt-1">
-                                                {errors.statement_file}
-                                            </p>
-                                        )}
+                                        {errors.statement_files && <p className="text-red-600 text-sm mt-1">{errors.statement_files}</p>}
                                         <p className="mt-1 text-xs text-gray-500">
-                                            Upload a CSV exported from Mpesa or your bank with
-                                            columns like{' '}
-                                            <span className="font-mono">
-                                                date, description, amount, type
-                                            </span>
-                                            . Ombr will read it and create transactions for this
-                                            account.
+                                            Upload statements from Mpesa or your bank. Ombr will read them and create transactions for this account.
                                         </p>
                                     </div>
 
