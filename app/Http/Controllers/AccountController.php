@@ -30,10 +30,10 @@ class AccountController extends Controller
         $validated = $request->validate([
             'provider' => 'required|string',
             'account_name' => 'required|string',
-            'account_number' => 'nullable|string',
+            'account_number' => 'nullable|string|max:4',
             'account_type' => 'required|string',
             'balance' => 'required|numeric',
-            'currency' => 'nullable|string',
+            'currency' => 'nullable|string|max:10',
             'is_active' => 'boolean',
             'notes' => 'nullable|string',
             'statement_files' => 'nullable|array|max:5',
@@ -41,6 +41,32 @@ class AccountController extends Controller
         ]);
 
         $validated['user_id'] = $request->user()->id;
+
+        // If statement files were uploaded, validate ALL files first. Do not create the account if any file cannot be read.
+        $parsedFiles = [];
+        $failedFilenames = [];
+
+        if ($request->hasFile('statement_files')) {
+            foreach ($request->file('statement_files') as $file) {
+                try {
+                    $rows = $this->statementImportService->parseFileToRows($file, $validated['provider']);
+                    $parsedFiles[] = ['file' => $file, 'rows' => $rows];
+                } catch (\Throwable $e) {
+                    $failedFilenames[] = $file->getClientOriginalName();
+                }
+            }
+
+            $totalFiles = count($parsedFiles) + count($failedFilenames);
+            if (count($failedFilenames) > 0) {
+                $readable = count($parsedFiles);
+                $message = $readable === 0
+                    ? 'We could not read any of the statement files. Please check the formats (CSV or PDF) and try again.'
+                    : 'We couldn\'t read all files. We could read ' . $readable . ' of ' . $totalFiles . '. The following could not be read: ' . implode(', ', $failedFilenames);
+                return redirect()
+                    ->route('accounts.index')
+                    ->withErrors(['statement_files' => $message]);
+            }
+        }
 
         $account = Account::create($validated);
 
@@ -53,34 +79,20 @@ class AccountController extends Controller
             'read' => false,
         ]);
 
-        $importedCount = null;
-
-        // If statement files were uploaded, import transactions for this account
-        if ($request->hasFile('statement_files')) {
-            $importedCount = 0;
-            foreach ($request->file('statement_files') as $file) {
-                try {
-                    $importedCount += $this->statementImportService->importFromUploadedFile(
-                        $file,
-                        $request->user(),
-                        $account,
-                    );
-                } catch (\Throwable $e) {
-                    return redirect()
-                        ->route('accounts.index')
-                        ->withErrors([
-                            'statement_files' => 'We could not read one of the statement files. Please check the formats (CSV or PDF) and try again.',
-                        ]);
-                }
-            }
+        $importedCount = 0;
+        foreach ($parsedFiles as $item) {
+            $importedCount += $this->statementImportService->importFromRows(
+                $item['rows'],
+                $request->user(),
+                $account,
+            );
         }
 
         $message = 'Account created successfully.';
-
-        if ($importedCount !== null) {
+        if (count($parsedFiles) > 0) {
             $message = $importedCount > 0
                 ? "Account created and {$importedCount} transactions imported."
-                : 'Account created, but no transactions were found in the statement.';
+                : 'Account created, but no transactions were found in the statements.';
         }
 
         return redirect()->route('accounts.index')->with('success', $message);

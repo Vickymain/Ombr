@@ -5,7 +5,7 @@ import { DocumentArrowUpIcon } from '@heroicons/react/24/outline';
  * Prominent drag-and-drop file zone. Supports multiple files, shows chosen names.
  * Use with: value = array of File, onChange = (files) => setData('statement_files', files).
  */
-export default function FileUploadZone({ value = [], onChange, accept = '.csv,text/csv,application/pdf,.pdf', maxFiles = 5, required }) {
+export default function FileUploadZone({ value = [], onChange, accept = '.csv,text/csv,application/pdf,.pdf', maxFiles = 5, required, className = '' }) {
     const inputRef = useRef(null);
     const [isDragging, setIsDragging] = useState(false);
 
@@ -62,6 +62,7 @@ export default function FileUploadZone({ value = [], onChange, accept = '.csv,te
                 className={`
                     border-2 border-dashed rounded-xl p-6 text-center cursor-pointer transition-colors
                     ${isDragging ? 'border-indigo-500 bg-indigo-50' : 'border-gray-300 bg-gray-50 hover:border-indigo-400 hover:bg-indigo-50/50'}
+                    ${className}
                 `}
             >
                 <DocumentArrowUpIcon className="mx-auto h-10 w-10 text-gray-400 mb-2" />
