@@ -157,12 +157,14 @@ export default function Transactions({ transactions = [], accounts = [], categor
                                                     transaction.type === 'income' ? 'bg-green-100 text-green-800' :
                                                     transaction.type === 'expense' ? 'bg-red-100 text-red-800' : 'bg-blue-100 text-blue-800'
                                                 }`}>
-                                                    {transaction.type}
+                                                    {transaction.type.charAt(0).toUpperCase() + transaction.type.slice(1)}
                                                 </span>
                                             </div>
                                             <p className="text-sm text-gray-500">{transaction.description || 'No description'}</p>
                                             <div className="flex items-center mt-1 space-x-3 text-xs text-gray-500">
-                                                <span>{account?.account_name || 'Unknown Account'}</span>
+                                                <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-gray-100 text-gray-700">
+                                                    {account?.account_name || 'Unknown Account'}
+                                                </span>
                                                 {transaction.payment_method && <span>• {transaction.payment_method}</span>}
                                             </div>
                                         </div>
