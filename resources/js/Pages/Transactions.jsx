@@ -3,6 +3,64 @@ import AppLayout from '../Layouts/AppLayout';
 import { PlusIcon, FunnelIcon, ArrowUpIcon, ArrowDownIcon } from '@heroicons/react/24/outline';
 import { useForm, router } from '@inertiajs/react';
 
+const CURRENCY_SYMBOLS = {
+    USD: '$',
+    EUR: '€',
+    GBP: '£',
+    KES: 'KSh',
+    BTC: '₿',
+};
+
+// Approximate KES conversion rates for display when showing all in KSh alongside native currency
+const KES_RATES = {
+    USD: 130,
+    EUR: 140,
+    GBP: 160,
+};
+
+function formatTransactionAmounts(transaction, account) {
+    const currency = account?.currency || 'USD';
+    const symbol = CURRENCY_SYMBOLS[currency] || '$';
+    const rawAmount = parseFloat(transaction.amount || 0);
+
+    if (Number.isNaN(rawAmount)) {
+        return { main: `${symbol}0.00`, converted: null };
+    }
+
+    if (currency === 'KES') {
+        const formatted = `KSh ${rawAmount.toLocaleString('en-KE', {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2,
+        })}`;
+        return { main: formatted, converted: null };
+    }
+
+    const main = `${symbol}${rawAmount.toLocaleString('en-US', {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+    })}`;
+
+    const rate = KES_RATES[currency];
+    if (!rate) {
+        return { main, converted: null };
+    }
+
+    const kesAmount = rawAmount * rate;
+    const converted = `KSh ${kesAmount.toLocaleString('en-KE', {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+    })}`;
+
+    return { main, converted };
+}
+
+function getTransactionActionLabel(transaction) {
+    if (transaction.type === 'income') return 'Received';
+    if (transaction.type === 'expense') return 'Paid';
+    if (transaction.type === 'transfer') return 'Transfer';
+    return 'Transaction';
+}
+
 export default function Transactions({ transactions = [], accounts = [], categories = [] }) {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [isImportModalOpen, setIsImportModalOpen] = useState(false);
@@ -75,14 +133,14 @@ export default function Transactions({ transactions = [], accounts = [], categor
                 <div className="flex items-center space-x-3">
                     <button
                         onClick={openImportModal}
-                        className="inline-flex items-center px-4 py-2 bg-white text-indigo-600 border border-indigo-200 rounded-lg hover:bg-indigo-50 transition-colors"
+                        className="inline-flex items-center px-4 py-2 bg-white text-gray-900 border border-gray-300 rounded-lg hover:bg-gray-100 transition-colors"
                     >
                         <PlusIcon className="h-5 w-5 mr-2" />
                         Import CSV / PDF
                     </button>
                     <button
                         onClick={openModal}
-                        className="inline-flex items-center px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
+                        className="inline-flex items-center px-4 py-2 bg-gray-900 text-white rounded-lg hover:bg-gray-800 transition-colors"
                     >
                         <PlusIcon className="h-5 w-5 mr-2" />
                         Add Transaction
@@ -101,7 +159,7 @@ export default function Transactions({ transactions = [], accounts = [], categor
                                 onClick={() => setFilterType(type)}
                                 className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
                                     filterType === type
-                                        ? 'bg-indigo-600 text-white'
+                                        ? 'bg-gray-900 text-white'
                                         : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                                 }`}
                             >
@@ -135,48 +193,71 @@ export default function Transactions({ transactions = [], accounts = [], categor
                     ) : (
                         filteredTransactions.map((transaction) => {
                             const account = accounts.find(a => a.id === transaction.account_id);
+                            const { main: mainAmount, converted } = formatTransactionAmounts(transaction, account);
+                            const actionLabel = getTransactionActionLabel(transaction);
+                            const typeLabel = transaction.type === 'income'
+                                ? 'Income'
+                                : transaction.type === 'expense'
+                                    ? 'Expense'
+                                    : 'Transfer';
                             return (
                                 <div key={transaction.id} className="px-6 py-4 flex items-center justify-between hover:bg-gray-50">
                                     <div className="flex items-center flex-1">
-                                        <div className={`w-12 h-12 rounded-full flex items-center justify-center ${
-                                            transaction.type === 'income' ? 'bg-green-100' : 
-                                            transaction.type === 'expense' ? 'bg-red-100' : 'bg-blue-100'
-                                        }`}>
+                                        <div
+                                            className={`w-12 h-12 rounded-full flex items-center justify-center ${
+                                                transaction.type === 'income'
+                                                    ? 'bg-green-100 text-green-700'
+                                                    : transaction.type === 'expense'
+                                                    ? 'bg-red-100 text-red-700'
+                                                    : 'bg-gray-900 text-white'
+                                            }`}
+                                        >
                                             {transaction.type === 'income' ? (
-                                                <ArrowUpIcon className="h-6 w-6 text-green-600" />
+                                                <ArrowUpIcon className="h-6 w-6" />
                                             ) : transaction.type === 'expense' ? (
-                                                <ArrowDownIcon className="h-6 w-6 text-red-600" />
+                                                <ArrowDownIcon className="h-6 w-6" />
                                             ) : (
-                                                <span className="text-blue-600">↔</span>
+                                                <span className="text-sm font-medium">↔</span>
                                             )}
                                         </div>
                                         <div className="ml-4 flex-1">
                                             <div className="flex items-center">
-                                                <p className="text-sm font-medium text-gray-900">{transaction.category}</p>
-                                                <span className={`ml-2 px-2 py-0.5 text-xs font-medium rounded ${
-                                                    transaction.type === 'income' ? 'bg-green-100 text-green-800' :
-                                                    transaction.type === 'expense' ? 'bg-red-100 text-red-800' : 'bg-blue-100 text-blue-800'
-                                                }`}>
-                                                    {transaction.type.charAt(0).toUpperCase() + transaction.type.slice(1)}
-                                                </span>
+                                                <p className="text-sm font-medium text-gray-900">
+                                                    {transaction.category && transaction.category !== 'Imported'
+                                                        ? transaction.category
+                                                        : actionLabel}
+                                                </p>
                                             </div>
                                             <p className="text-sm text-gray-500">{transaction.description || 'No description'}</p>
                                             <div className="flex items-center mt-1 space-x-3 text-xs text-gray-500">
                                                 <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-gray-100 text-gray-700">
                                                     {account?.account_name || 'Unknown Account'}
                                                 </span>
+                                                <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-gray-900 text-white">
+                                                    {typeLabel}
+                                                </span>
                                                 {transaction.payment_method && <span>• {transaction.payment_method}</span>}
                                             </div>
                                         </div>
                                     </div>
                                     <div className="text-right ml-4">
-                                        <p className={`text-lg font-semibold ${
-                                            transaction.type === 'income' ? 'text-green-600' : 
-                                            transaction.type === 'expense' ? 'text-red-600' : 'text-blue-600'
-                                        }`}>
+                                        <p
+                                            className={`text-lg font-semibold ${
+                                                transaction.type === 'income'
+                                                    ? 'text-green-600'
+                                                    : transaction.type === 'expense'
+                                                    ? 'text-red-600'
+                                                    : 'text-gray-900'
+                                            }`}
+                                        >
                                             {transaction.type === 'income' ? '+' : transaction.type === 'expense' ? '-' : ''}
-                                            ${parseFloat(transaction.amount).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                            {mainAmount}
                                         </p>
+                                        {converted && (
+                                            <p className="text-xs text-gray-500 mt-0.5">
+                                                [{converted}]
+                                            </p>
+                                        )}
                                         <p className="text-sm text-gray-500">{new Date(transaction.transaction_date).toLocaleDateString()}</p>
                                     </div>
                                 </div>
@@ -207,7 +288,7 @@ export default function Transactions({ transactions = [], accounts = [], categor
                                                 onClick={() => setData('type', type)}
                                                 className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
                                                     data.type === type
-                                                        ? 'bg-indigo-600 text-white'
+                                                        ? 'bg-gray-900 text-white'
                                                         : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                                                 }`}
                                             >
@@ -220,10 +301,10 @@ export default function Transactions({ transactions = [], accounts = [], categor
                                 {/* Account */}
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 mb-1">Account</label>
-                                    <select
+                                        <select
                                         value={data.account_id}
                                         onChange={e => setData('account_id', e.target.value)}
-                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-transparent"
                                         required
                                     >
                                         {accounts.map(account => (
@@ -238,16 +319,22 @@ export default function Transactions({ transactions = [], accounts = [], categor
                                 {/* Amount */}
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 mb-1">Amount</label>
-                                    <div className="relative">
-                                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                                            <span className="text-gray-500">$</span>
-                                        </div>
+                                    <div className="flex gap-2">
+                                        <select
+                                            value={accounts.find(a => a.id === Number(data.account_id))?.currency || 'USD'}
+                                            disabled
+                                            className="flex-shrink-0 w-28 px-3 py-2 border border-gray-300 rounded-lg bg-gray-50 text-sm text-gray-700"
+                                        >
+                                            <option>
+                                                {accounts.find(a => a.id === Number(data.account_id))?.currency || 'USD'}
+                                            </option>
+                                        </select>
                                         <input
                                             type="number"
                                             step="0.01"
                                             value={data.amount}
                                             onChange={e => setData('amount', e.target.value)}
-                                            className="w-full pl-8 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-transparent"
                                             placeholder="0.00"
                                             required
                                         />
@@ -289,13 +376,13 @@ export default function Transactions({ transactions = [], accounts = [], categor
                                 {/* Date */}
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 mb-1">Date</label>
-                                    <input
-                                        type="date"
-                                        value={data.transaction_date}
-                                        onChange={e => setData('transaction_date', e.target.value)}
-                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                                        required
-                                    />
+                                        <input
+                                            type="date"
+                                            value={data.transaction_date}
+                                            onChange={e => setData('transaction_date', e.target.value)}
+                                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-transparent"
+                                            required
+                                        />
                                 </div>
 
                                 {/* Payment Method */}
@@ -304,7 +391,7 @@ export default function Transactions({ transactions = [], accounts = [], categor
                                     <select
                                         value={data.payment_method}
                                         onChange={e => setData('payment_method', e.target.value)}
-                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-transparent"
                                     >
                                         <option value="cash">Cash</option>
                                         <option value="card">Card</option>
@@ -320,7 +407,7 @@ export default function Transactions({ transactions = [], accounts = [], categor
                                     <textarea
                                         value={data.notes}
                                         onChange={e => setData('notes', e.target.value)}
-                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-transparent"
                                         rows="2"
                                         placeholder="Any additional notes..."
                                     />
@@ -337,7 +424,7 @@ export default function Transactions({ transactions = [], accounts = [], categor
                                     <button
                                         type="submit"
                                         disabled={processing}
-                                        className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 disabled:opacity-50"
+                                        className="px-4 py-2 text-sm font-medium text-white bg-gray-900 rounded-lg hover:bg-gray-800 disabled:opacity-50"
                                     >
                                         {processing ? 'Adding...' : 'Add Transaction'}
                                     </button>
@@ -374,7 +461,7 @@ export default function Transactions({ transactions = [], accounts = [], categor
                                     <select
                                         value={importAccountId}
                                         onChange={(e) => setImportAccountId(e.target.value)}
-                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-transparent"
                                     >
                                         {accounts.map((account) => (
                                             <option key={account.id} value={account.id}>
@@ -449,7 +536,7 @@ export default function Transactions({ transactions = [], accounts = [], categor
                                                 },
                                             });
                                         }}
-                                        className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-lg hover:bg-indigo-700"
+                                        className="px-4 py-2 text-sm font-medium text-white bg-gray-900 rounded-lg hover:bg-gray-800"
                                     >
                                         Import
                                     </button>

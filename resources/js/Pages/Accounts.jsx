@@ -23,6 +23,13 @@ const accountTypes = [
     { value: 'other', label: 'Other' },
 ];
 
+// Approximate FX rates to convert account balances to KSh for the total balance banner.
+const KES_RATES = {
+    USD: 130,
+    EUR: 140,
+    GBP: 160,
+};
+
 export default function Accounts({ accounts = [] }) {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [isProcessingModalOpen, setIsProcessingModalOpen] = useState(false);
@@ -42,10 +49,18 @@ export default function Accounts({ accounts = [] }) {
         statement_files: [],
     });
 
-    const totalBalance = accounts.reduce(
-        (sum, acc) => sum + parseFloat(acc.balance || 0),
-        0,
-    );
+    const totalBalanceKes = accounts.reduce((sum, acc) => {
+        const raw = parseFloat(acc.balance || 0);
+        if (Number.isNaN(raw)) return sum;
+        if (acc.currency === 'KES') {
+            return sum + raw;
+        }
+        const rate = KES_RATES[acc.currency];
+        if (!rate) {
+            return sum + raw;
+        }
+        return sum + raw * rate;
+    }, 0);
 
     const openModal = () => {
         reset();
@@ -135,7 +150,7 @@ export default function Accounts({ accounts = [] }) {
     };
 
     return (
-        <AppLayout title="Accounts" totalBalance={totalBalance}>
+        <AppLayout title="Accounts" totalBalance={totalBalanceKes}>
             {/* Header */}
             <div className="flex items-center justify-between mb-6">
                 <div>
@@ -147,7 +162,7 @@ export default function Accounts({ accounts = [] }) {
                 </div>
                 <button
                     onClick={openModal}
-                    className="inline-flex items-center px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
+                    className="inline-flex items-center px-4 py-2 bg-[#C85D3A] text-white rounded-lg hover:bg-[#B85450] transition-colors shadow-sm"
                 >
                     <PlusIcon className="h-5 w-5 mr-2" />
                     Add Account
@@ -155,16 +170,16 @@ export default function Accounts({ accounts = [] }) {
             </div>
 
             {/* Accounts summary */}
-            <div className="bg-gradient-to-r from-indigo-500 to-purple-600 rounded-lg shadow-lg p-6 mb-8 text-white">
-                <p className="text-sm font-medium opacity-90">Total Balance</p>
-                <p className="mt-2 text-4xl font-bold">
-                    $
-                    {totalBalance.toLocaleString('en-US', {
+            <div className="bg-gray-900 rounded-2xl shadow-lg p-6 mb-8 text-white">
+                <p className="text-sm font-medium text-gray-300">Total Balance (KSh)</p>
+                <p className="mt-2 text-4xl font-bold tracking-tight">
+                    KSh{' '}
+                    {totalBalanceKes.toLocaleString('en-KE', {
                         minimumFractionDigits: 2,
                         maximumFractionDigits: 2,
                     })}
                 </p>
-                <p className="mt-2 text-sm opacity-75">
+                <p className="mt-2 text-sm text-gray-300">
                     Across {accounts.length} account{accounts.length !== 1 ? 's' : ''}
                 </p>
             </div>
@@ -176,7 +191,7 @@ export default function Accounts({ accounts = [] }) {
                         <p className="mb-4">No accounts yet. Click &quot;Add Account&quot; to get started.</p>
                         <button
                             onClick={openModal}
-                            className="inline-flex items-center px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
+                            className="inline-flex items-center px-4 py-2 bg-[#C85D3A] text-white rounded-lg hover:bg-[#B85450]"
                         >
                             <PlusIcon className="h-5 w-5 mr-2" />
                             Add Account
