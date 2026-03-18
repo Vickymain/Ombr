@@ -16,11 +16,16 @@ Route::get('/terms', [PagesController::class, 'terms'])->name('terms');
 Route::get('/privacy', [PagesController::class, 'privacy'])->name('privacy');
 Route::get('/learn-more', [PagesController::class, 'learnMore'])->name('learn-more');
 
+// Landing page - accessible to everyone, redirects to dashboard if logged in
+Route::get('/', function () {
+    if (auth()->check()) {
+        return redirect('/dashboard');
+    }
+    return app(PagesController::class)->learnMore();
+})->name('home');
+
 // Guest routes (only accessible when NOT logged in)
 Route::middleware('guest')->group(function () {
-Route::get('/', function () {
-        return redirect('/login');
-    });
     
     Route::get('/register', [AuthController::class, 'showRegister'])->name('register');
     Route::post('/register', [AuthController::class, 'register']);
@@ -38,6 +43,7 @@ Route::middleware('auth')->group(function () {
     // Accounts
     Route::get('/accounts', [AccountController::class, 'index'])->name('accounts.index');
     Route::post('/accounts', [AccountController::class, 'store'])->name('accounts.store');
+    Route::get('/accounts/{id}', [AccountController::class, 'show'])->name('accounts.show');
     Route::put('/accounts/{id}', [AccountController::class, 'update'])->name('accounts.update');
     Route::delete('/accounts/{id}', [AccountController::class, 'destroy'])->name('accounts.destroy');
     

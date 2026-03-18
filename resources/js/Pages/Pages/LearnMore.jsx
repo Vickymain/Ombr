@@ -57,13 +57,13 @@ export default function LearnMore() {
             <div className="relative z-10">
 
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20">
-                    <Link 
-                        href="/login" 
-                        className="inline-flex items-center text-black hover:text-gray-700 mb-8 transition-colors"
-                    >
-                        <ArrowLeftIcon className="h-5 w-5 mr-2" />
-                        Back to Login
-                    </Link>
+                    <div className="flex items-center justify-between mb-8">
+                        <Link href="/" className="text-2xl font-bold text-black">Ombr.</Link>
+                        <div className="flex items-center gap-3">
+                            <Link href="/login" className="text-sm font-medium text-black hover:text-gray-700 transition-colors">Sign In</Link>
+                            <Link href="/register" className="bg-black text-white px-5 py-2 rounded-full text-sm font-medium hover:bg-gray-800 transition-colors">Get Started</Link>
+                        </div>
+                    </div>
                     
                     <div className="text-center">
                         <h1 className="text-6xl md:text-7xl font-bold text-black mb-6 leading-tight">

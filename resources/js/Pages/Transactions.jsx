@@ -125,42 +125,42 @@ export default function Transactions({ transactions = [], accounts = [], categor
     return (
         <AppLayout title="Transactions" totalBalance={totalBalance}>
             {/* Header */}
-            <div className="flex items-center justify-between mb-6">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-8">
                 <div>
                     <h1 className="text-2xl font-bold text-gray-900">Transactions</h1>
-                    <p className="mt-1 text-sm text-gray-600">Track your income and expenses</p>
+                    <p className="mt-1 text-sm text-gray-500">Track your income and expenses</p>
                 </div>
-                <div className="flex items-center space-x-3">
+                <div className="flex items-center gap-3">
                     <button
                         onClick={openImportModal}
-                        className="inline-flex items-center px-4 py-2 bg-white text-gray-900 border border-gray-300 rounded-lg hover:bg-gray-100 transition-colors"
+                        className="inline-flex items-center gap-2 px-4 py-2.5 bg-white text-gray-700 border border-gray-200 rounded-xl font-medium hover:bg-gray-50 transition-all shadow-sm"
                     >
-                        <PlusIcon className="h-5 w-5 mr-2" />
+                        <PlusIcon className="h-4 w-4" />
                         Import CSV / PDF
                     </button>
                     <button
                         onClick={openModal}
-                        className="inline-flex items-center px-4 py-2 bg-gray-900 text-white rounded-lg hover:bg-gray-800 transition-colors"
+                        className="inline-flex items-center gap-2 px-5 py-2.5 bg-[#C85D3A] text-white rounded-xl font-medium hover:bg-[#B85450] transition-all shadow-sm"
                     >
-                        <PlusIcon className="h-5 w-5 mr-2" />
+                        <PlusIcon className="h-4 w-4" />
                         Add Transaction
                     </button>
                 </div>
             </div>
 
             {/* Filters */}
-            <div className="bg-white rounded-lg shadow p-4 mb-6">
-                <div className="flex items-center space-x-4">
+            <div className="bg-white/80 backdrop-blur-sm rounded-2xl border border-gray-100 shadow-sm p-4 mb-6">
+                <div className="flex items-center gap-4">
                     <FunnelIcon className="h-5 w-5 text-gray-400" />
-                    <div className="flex space-x-2">
+                    <div className="flex bg-gray-100 rounded-xl p-0.5">
                         {['all', 'income', 'expense', 'transfer'].map(type => (
                             <button
                                 key={type}
                                 onClick={() => setFilterType(type)}
-                                className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
+                                className={`px-4 py-2 text-sm font-medium rounded-lg transition-all ${
                                     filterType === type
-                                        ? 'bg-gray-900 text-white'
-                                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                                        ? 'bg-white text-gray-900 shadow-sm'
+                                        : 'text-gray-500 hover:text-gray-700'
                                 }`}
                             >
                                 {type.charAt(0).toUpperCase() + type.slice(1)}
@@ -171,8 +171,8 @@ export default function Transactions({ transactions = [], accounts = [], categor
             </div>
 
             {/* Transactions List */}
-            <div className="bg-white rounded-lg shadow">
-                <div className="divide-y divide-gray-200">
+            <div className="bg-white/80 backdrop-blur-sm rounded-2xl border border-gray-100 shadow-sm">
+                <div className="divide-y divide-gray-100">
                     {filteredTransactions.length === 0 ? (
                         <div className="px-6 py-12 text-center text-gray-500">
                             <div className="text-gray-400 mb-4">
