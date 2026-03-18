@@ -83,7 +83,7 @@ export default function Login() {
                         
                         {/* Learn Now button below diamonds */}
                         <div className="pt-6">
-                            <Link href="/learn-more" className="bg-black text-white px-8 py-3 rounded-full hover:bg-gray-800 transition-colors inline-flex items-center">
+                            <Link href="/" className="bg-black text-white px-8 py-3 rounded-full hover:bg-gray-800 transition-colors inline-flex items-center">
                                 Learn Now
                                 <span className="ml-3 text-lg">→</span>
                             </Link>

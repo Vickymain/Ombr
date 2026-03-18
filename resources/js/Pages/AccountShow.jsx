@@ -13,8 +13,10 @@ import {
     MagnifyingGlassIcon,
     DocumentArrowUpIcon,
     ChevronDownIcon,
+    TrashIcon,
 } from '@heroicons/react/24/outline';
-import { Link, useForm } from '@inertiajs/react';
+import { Link, useForm, router } from '@inertiajs/react';
+import { parseTransactionLabel, getActionStyle } from '../utils/transactionLabels';
 import {
     BarChart,
     Bar,
@@ -81,6 +83,7 @@ export default function AccountShow({
     const [filter, setFilter] = useState('all');
     const [search, setSearch] = useState('');
     const [showImportModal, setShowImportModal] = useState(false);
+    const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
     const [visibleTransactions, setVisibleTransactions] = useState(20);
 
     const cs = currencySymbols[account.currency] || account.currency || '$';
@@ -91,11 +94,11 @@ export default function AccountShow({
         if (filter !== 'all') list = list.filter((t) => t.type === filter);
         if (search.trim()) {
             const q = search.toLowerCase();
-            list = list.filter((t) =>
-                (t.category || '').toLowerCase().includes(q) ||
-                (t.description || '').toLowerCase().includes(q) ||
-                (t.reference_number || '').toLowerCase().includes(q)
-            );
+            list = list.filter((t) => {
+                const label = parseTransactionLabel(t);
+                const haystack = [t.category, t.description, t.reference_number, label.action, label.counterparty, label.displayLabel].filter(Boolean).join(' ').toLowerCase();
+                return haystack.includes(q);
+            });
         }
         return list;
     }, [transactions, filter, search]);
@@ -112,12 +115,16 @@ export default function AccountShow({
 
     const handleImport = (e) => {
         e.preventDefault();
+        window.__ombrSkipLoading = true;
         importPost('/transactions/import', {
             forceFormData: true,
             onSuccess: () => {
+                window.__ombrSkipLoading = false;
                 setShowImportModal(false);
                 importReset();
             },
+            onError: () => { window.__ombrSkipLoading = false; },
+            onFinish: () => { window.__ombrSkipLoading = false; },
         });
     };
 
@@ -243,16 +250,23 @@ export default function AccountShow({
                                         {group.items.map((t) => (
                                             <div key={t.id} className="px-6 py-3.5 flex items-center justify-between hover:bg-gray-50/50 transition-colors">
                                                 <div className="flex items-center gap-3">
-                                                    <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${t.type === 'income' ? 'bg-emerald-100' : 'bg-red-100'}`}>
-                                                        {t.type === 'income'
-                                                            ? <ArrowUpIcon className="h-4 w-4 text-emerald-600" />
-                                                            : <ArrowDownIcon className="h-4 w-4 text-red-600" />
-                                                        }
-                                                    </div>
-                                                    <div>
-                                                        <p className="text-sm font-medium text-gray-900">{t.category || 'Uncategorised'}</p>
-                                                        <p className="text-xs text-gray-400 truncate max-w-[220px]">{t.description || 'No description'}</p>
-                                                    </div>
+                                                    {(() => {
+                                                        const { action, displayLabel } = parseTransactionLabel(t);
+                                                        const style = getActionStyle(action);
+                                                        return (
+                                                            <>
+                                                                <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${style.bg}`}>
+                                                                    {style.icon === 'up' ? <ArrowUpIcon className={`h-4 w-4 ${style.text}`} /> : <ArrowDownIcon className={`h-4 w-4 ${style.text}`} />}
+                                                                </div>
+                                                                <div>
+                                                                    <p className="text-sm font-medium text-gray-900">{displayLabel}</p>
+                                                                    {t.description && t.description !== displayLabel && (
+                                                                        <p className="text-xs text-gray-400 truncate max-w-[220px]">{t.description}</p>
+                                                                    )}
+                                                                </div>
+                                                            </>
+                                                        );
+                                                    })()}
                                                 </div>
                                                 <p className={`text-sm font-semibold ${t.type === 'income' ? 'text-emerald-600' : 'text-red-600'}`}>
                                                     {t.type === 'income' ? '+' : '-'}{cs} {parseFloat(t.amount).toLocaleString('en-US', { minimumFractionDigits: 2 })}
@@ -378,10 +392,38 @@ export default function AccountShow({
                                 <CalendarDaysIcon className="h-5 w-5 text-[#C85D3A]" />
                                 <span className="text-sm font-medium text-gray-700">View all transactions</span>
                             </Link>
+                            <button
+                                onClick={() => setShowDeleteConfirm(true)}
+                                className="w-full flex items-center gap-3 px-4 py-3 rounded-xl bg-red-50 hover:bg-red-100 transition-colors text-left"
+                            >
+                                <TrashIcon className="h-5 w-5 text-red-500" />
+                                <span className="text-sm font-medium text-red-600">Delete account</span>
+                            </button>
                         </div>
                     </div>
                 </div>
             </div>
+
+            {/* Delete confirmation modal */}
+            {showDeleteConfirm && typeof document !== 'undefined' && createPortal(
+                <div className="fixed inset-0 z-[100] overflow-y-auto" aria-modal="true">
+                    <div className="flex items-center justify-center min-h-screen px-4 py-8">
+                        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setShowDeleteConfirm(false)} />
+                        <div className="relative z-10 bg-white rounded-2xl shadow-2xl max-w-sm w-full p-6 text-center">
+                            <div className="mx-auto w-12 h-12 rounded-full bg-red-100 flex items-center justify-center mb-4">
+                                <TrashIcon className="h-6 w-6 text-red-600" />
+                            </div>
+                            <h3 className="text-lg font-semibold text-gray-900 mb-2">Delete Account</h3>
+                            <p className="text-sm text-gray-500 mb-6">This will permanently delete <strong>{account.account_name}</strong> and all its transactions.</p>
+                            <div className="flex gap-3 justify-center">
+                                <button onClick={() => setShowDeleteConfirm(false)} className="px-5 py-2.5 text-sm font-medium text-gray-700 bg-white border border-gray-200 rounded-xl hover:bg-gray-50 transition-all">Cancel</button>
+                                <button onClick={() => router.delete(`/accounts/${account.id}`)} className="px-5 py-2.5 text-sm font-medium text-white bg-red-600 rounded-xl hover:bg-red-700 transition-all">Delete</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>,
+                document.body
+            )}
 
             {/* Import modal */}
             {showImportModal && typeof document !== 'undefined' && createPortal(

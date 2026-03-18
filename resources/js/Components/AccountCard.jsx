@@ -1,11 +1,24 @@
 import { getProviderTheme, getProviderInfo, getProviderCardConfig } from '../data/providers';
 
 const currencySymbols = {
+    KES: 'KSh',
     USD: '$',
     EUR: '\u20AC',
     GBP: '\u00A3',
+    TZS: 'TSh',
+    UGX: 'USh',
+    ZAR: 'R',
+    NGN: '\u20A6',
+    INR: '\u20B9',
+    AUD: 'A$',
+    CAD: 'C$',
+    CHF: 'Fr',
+    JPY: '\u00A5',
+    CNY: '\u00A5',
+    AED: 'د.إ',
     BTC: '\u20BF',
-    KES: 'KSh',
+    ETH: '\u039E',
+    USDT: '$',
 };
 
 function ChipIcon({ light = true }) {
@@ -50,6 +63,16 @@ function MastercardLogo({ className = '' }) {
     );
 }
 
+function AmexLogo({ className = '' }) {
+    return (
+        <svg className={className} viewBox="0 0 120 80" fill="none">
+            <rect width="120" height="80" rx="6" fill="#006FCF" />
+            <text x="60" y="35" textAnchor="middle" fill="#FFFFFF" fontSize="14" fontWeight="bold" fontFamily="Inter, sans-serif">AMERICAN</text>
+            <text x="60" y="52" textAnchor="middle" fill="#FFFFFF" fontSize="14" fontWeight="bold" fontFamily="Inter, sans-serif">EXPRESS</text>
+        </svg>
+    );
+}
+
 export default function AccountCard({ account, compact = false }) {
     const providerConfig = getProviderCardConfig(account.provider);
     const providerInfo = getProviderInfo(account.provider);
@@ -70,34 +93,22 @@ export default function AccountCard({ account, compact = false }) {
         : '\u2022\u2022\u2022\u2022  \u2022\u2022\u2022\u2022  \u2022\u2022\u2022\u2022  \u2022\u2022\u2022\u2022';
 
     const network = providerConfig?.network || (account.account_type === 'credit' ? 'visa' : 'mastercard');
-    const templateImage = providerConfig?.templateImage;
 
     const width = compact ? 'w-72' : 'w-80';
     const height = compact ? 'h-44' : 'h-52';
 
+    const accentColor = providerTheme?.accent;
+
     return (
         <div
             className={`relative ${width} ${height} rounded-2xl overflow-hidden transition-all duration-300 hover:scale-[1.02] hover:shadow-2xl shadow-lg cursor-pointer`}
-            style={
-                templateImage
-                    ? {
-                        backgroundImage: `url(/images/card-templates/${templateImage}.png)`,
-                        backgroundSize: 'cover',
-                        backgroundPosition: 'center',
-                    }
-                    : cardBg
-            }
+            style={cardBg}
         >
-            {templateImage && (
-                <div className="absolute inset-0 bg-gradient-to-br from-black/40 to-black/20" />
-            )}
-
-            {!templateImage && (
-                <>
-                    <div className="absolute top-[-20%] right-[-10%] w-40 h-40 bg-white/5 rounded-full blur-2xl" />
-                    <div className="absolute bottom-[-15%] left-[-5%] w-32 h-32 bg-white/5 rounded-full blur-2xl" />
-                    <div className="absolute top-[40%] right-[20%] w-20 h-20 bg-white/3 rounded-full blur-xl" />
-                </>
+            <div className="absolute top-[-20%] right-[-10%] w-40 h-40 bg-white/5 rounded-full blur-2xl" />
+            <div className="absolute bottom-[-15%] left-[-5%] w-32 h-32 bg-white/5 rounded-full blur-2xl" />
+            <div className="absolute top-[40%] right-[20%] w-20 h-20 bg-white/3 rounded-full blur-xl" />
+            {accentColor && (
+                <div className="absolute top-[-30%] left-[60%] w-48 h-48 rounded-full blur-3xl opacity-10" style={{ background: accentColor }} />
             )}
 
             <div className={`relative h-full flex flex-col justify-between p-5 ${textColor}`}>
@@ -133,6 +144,8 @@ export default function AccountCard({ account, compact = false }) {
                     <div className="flex-shrink-0">
                         {network === 'visa' ? (
                             <VisaLogo className={`h-8 ${isLightText ? 'text-white' : 'text-gray-800'}`} />
+                        ) : network === 'amex' ? (
+                            <AmexLogo className="h-8" />
                         ) : (
                             <MastercardLogo className="h-8" />
                         )}

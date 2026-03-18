@@ -247,12 +247,13 @@ class AccountController extends Controller
         return redirect()->route('accounts.index');
     }
 
-    // Delete account
-    public function destroy($id)
+    // Delete account and all its transactions
+    public function destroy(Request $request, $id)
     {
-        $account = Account::findOrFail($id);
+        $account = Account::where('user_id', $request->user()->id)->findOrFail($id);
+        Transaction::where('account_id', $account->id)->delete();
         $account->delete();
 
-        return redirect()->route('accounts.index');
+        return redirect()->route('accounts.index')->with('success', 'Account deleted successfully.');
     }
 }

@@ -8,13 +8,16 @@ use App\Http\Controllers\AnalyticsController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\PagesController;
 use App\Http\Controllers\BudgetController;
+use App\Http\Controllers\SettingsController;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 
 // Public routes (accessible to everyone)
 Route::get('/terms', [PagesController::class, 'terms'])->name('terms');
 Route::get('/privacy', [PagesController::class, 'privacy'])->name('privacy');
-Route::get('/learn-more', [PagesController::class, 'learnMore'])->name('learn-more');
+Route::get('/learn-more', function () {
+    return redirect('/');
+})->name('learn-more');
 
 // Landing page - accessible to everyone, redirects to dashboard if logged in
 Route::get('/', function () {
@@ -66,4 +69,10 @@ Route::middleware('auth')->group(function () {
     // Notifications
     Route::post('/notifications/{id}/read', [NotificationController::class, 'markAsRead'])->name('notifications.read');
     Route::post('/notifications/read-all', [NotificationController::class, 'markAllAsRead'])->name('notifications.read-all');
+
+    // Settings
+    Route::get('/settings', [SettingsController::class, 'index'])->name('settings.index');
+    Route::put('/settings/password', [SettingsController::class, 'updatePassword'])->name('settings.password');
+    Route::post('/settings/two-factor', [SettingsController::class, 'toggleTwoFactor'])->name('settings.two-factor');
+    Route::delete('/settings/account', [SettingsController::class, 'deleteAccount'])->name('settings.delete-account');
 });

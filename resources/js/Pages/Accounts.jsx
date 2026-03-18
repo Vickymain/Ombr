@@ -19,10 +19,12 @@ import {
     DocumentTextIcon,
     CpuChipIcon,
     CloudArrowUpIcon,
+    TrashIcon,
 } from '@heroicons/react/24/outline';
-import { useForm, Link } from '@inertiajs/react';
-import { PROVIDER_CATEGORIES, CURRENCIES, getProviderCardConfig } from '../data/providers';
-import { LineChart, Line, ResponsiveContainer } from 'recharts';
+import { useForm, Link, router } from '@inertiajs/react';
+import { PROVIDER_CATEGORIES, CURRENCIES, getProviderCardConfig, getProviderTheme } from '../data/providers';
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
+import { parseTransactionLabel, getActionStyle } from '../utils/transactionLabels';
 
 function fieldBorderClass(error, value) {
     if (error) return 'border-red-500 focus:border-red-500 focus:ring-red-500/20';
@@ -76,6 +78,9 @@ export default function Accounts({
         statement_files: [],
     });
 
+    const [deleteConfirmId, setDeleteConfirmId] = useState(null);
+    const [processingError, setProcessingError] = useState(null);
+
     const totalBalanceKes = accounts.reduce((sum, acc) => {
         const raw = parseFloat(acc.balance || 0);
         if (Number.isNaN(raw)) return sum;
@@ -85,6 +90,20 @@ export default function Accounts({
     }, 0);
 
     const netSavings = thisMonthIncome - thisMonthExpenses;
+
+    const capPercent = (val) => {
+        const n = parseFloat(val);
+        if (Number.isNaN(n)) return '0';
+        if (n > 999) return '>999';
+        if (n < -999) return '<-999';
+        return n.toFixed(1);
+    };
+
+    const handleDeleteAccount = (id) => {
+        router.delete(`/accounts/${id}`, {
+            onSuccess: () => setDeleteConfirmId(null),
+        });
+    };
 
     const openModal = () => {
         reset();
@@ -135,6 +154,7 @@ export default function Accounts({
 
     const handleSubmit = (e) => {
         e.preventDefault();
+        setProcessingError(null);
         const hasFiles = data.statement_files && data.statement_files.length > 0;
         const formOptions = {
             forceFormData: hasFiles,
@@ -146,6 +166,7 @@ export default function Accounts({
                     const t = setTimeout(() => {
                         setIsProcessingModalOpen(false);
                         setProcessingStep('idle');
+                        window.__ombrSkipLoading = false;
                         closeModal();
                     }, 1500);
                     stepTimersRef.current.push(t);
@@ -153,17 +174,20 @@ export default function Accounts({
                     closeModal();
                 }
             },
-            onError: () => {
+            onError: (errs) => {
                 stepTimersRef.current.forEach(clearTimeout);
                 stepTimersRef.current = [];
-                setIsProcessingModalOpen(false);
-                setProcessingStep('idle');
+                setProcessingStep('error');
+                const msg = errs?.statement_files || Object.values(errs || {}).flat().join(' ') || 'Something went wrong. Please try again.';
+                setProcessingError(typeof msg === 'string' ? msg : String(msg));
+                window.__ombrSkipLoading = false;
             },
         };
 
         if (hasFiles) {
             setIsModalOpen(false);
             setIsProcessingModalOpen(true);
+            window.__ombrSkipLoading = true;
             setProcessingStep('creating');
             stepTimersRef.current.forEach(clearTimeout);
             stepTimersRef.current = [
@@ -197,97 +221,75 @@ export default function Accounts({
                 </button>
             </div>
 
-            {/* Stats overview - inspired by reference screenshots */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-                {/* Total Balance */}
-                <div className="bg-gradient-to-br from-gray-900 to-gray-800 rounded-2xl p-5 text-white shadow-lg col-span-1 sm:col-span-2 lg:col-span-1">
-                    <div className="flex items-center justify-between mb-3">
-                        <span className="text-xs font-medium text-gray-300 uppercase tracking-wider">Total Balance</span>
-                        <div className="p-1.5 bg-white/10 rounded-lg">
-                            <WalletIcon className="h-4 w-4 text-white" />
-                        </div>
+            {/* Stats overview - flat, no card background */}
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-x-6 gap-y-4 mb-6">
+                <div>
+                    <div className="flex items-center gap-2 mb-1">
+                        <WalletIcon className="h-4 w-4 text-gray-400" />
+                        <span className="text-xs font-medium text-gray-500 uppercase tracking-wider">Total Balance</span>
                     </div>
-                    <p className="text-3xl font-bold tracking-tight">
+                    <p className="text-2xl font-bold text-gray-900">
                         KSh {totalBalanceKes.toLocaleString('en-KE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </p>
-                    <p className="text-xs text-gray-400 mt-2">
-                        Across {accounts.length} account{accounts.length !== 1 ? 's' : ''}
-                    </p>
+                    <p className="text-xs text-gray-400 mt-0.5">{accounts.length} account{accounts.length !== 1 ? 's' : ''}</p>
                 </div>
-
-                {/* Income */}
-                <div className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm">
-                    <div className="flex items-center justify-between mb-3">
+                <div>
+                    <div className="flex items-center gap-2 mb-1">
+                        <ArrowTrendingUpIcon className="h-4 w-4 text-emerald-500" />
                         <span className="text-xs font-medium text-gray-500 uppercase tracking-wider">Income</span>
-                        <div className="p-1.5 bg-emerald-100 rounded-lg">
-                            <ArrowTrendingUpIcon className="h-4 w-4 text-emerald-600" />
-                        </div>
                     </div>
                     <p className="text-2xl font-bold text-gray-900">
                         KSh {thisMonthIncome.toLocaleString('en-KE', { minimumFractionDigits: 0 })}
                     </p>
-                    <div className="flex items-center gap-2 mt-2">
-                        <span className={`text-xs font-semibold px-1.5 py-0.5 rounded ${incomeChange >= 0 ? 'text-emerald-700 bg-emerald-50' : 'text-red-700 bg-red-50'}`}>
-                            {incomeChange >= 0 ? '+' : ''}{incomeChange}%
-                        </span>
-                        <span className="text-xs text-gray-400">vs last month</span>
-                    </div>
-                    {monthlyData.length > 0 && (
-                        <div className="mt-3 h-8">
-                            <ResponsiveContainer width="100%" height={32}>
-                                <LineChart data={monthlyData}>
-                                    <Line type="monotone" dataKey="income" stroke="#10B981" strokeWidth={2} dot={false} />
-                                </LineChart>
-                            </ResponsiveContainer>
-                        </div>
-                    )}
+                    <p className="text-xs text-gray-400 mt-0.5">
+                        vs last month <span className={`font-semibold ${incomeChange >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>{incomeChange >= 0 ? '+' : ''}{capPercent(incomeChange)}%</span>
+                    </p>
                 </div>
-
-                {/* Expenses */}
-                <div className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm">
-                    <div className="flex items-center justify-between mb-3">
+                <div>
+                    <div className="flex items-center gap-2 mb-1">
+                        <ArrowTrendingDownIcon className="h-4 w-4 text-red-500" />
                         <span className="text-xs font-medium text-gray-500 uppercase tracking-wider">Expenses</span>
-                        <div className="p-1.5 bg-red-100 rounded-lg">
-                            <ArrowTrendingDownIcon className="h-4 w-4 text-red-600" />
-                        </div>
                     </div>
                     <p className="text-2xl font-bold text-gray-900">
                         KSh {thisMonthExpenses.toLocaleString('en-KE', { minimumFractionDigits: 0 })}
                     </p>
-                    <div className="flex items-center gap-2 mt-2">
-                        <span className={`text-xs font-semibold px-1.5 py-0.5 rounded ${expenseChange <= 0 ? 'text-emerald-700 bg-emerald-50' : 'text-red-700 bg-red-50'}`}>
-                            {expenseChange >= 0 ? '+' : ''}{expenseChange}%
-                        </span>
-                        <span className="text-xs text-gray-400">vs last month</span>
-                    </div>
-                    {monthlyData.length > 0 && (
-                        <div className="mt-3 h-8">
-                            <ResponsiveContainer width="100%" height={32}>
-                                <LineChart data={monthlyData}>
-                                    <Line type="monotone" dataKey="expenses" stroke="#EF4444" strokeWidth={2} dot={false} />
-                                </LineChart>
-                            </ResponsiveContainer>
-                        </div>
-                    )}
+                    <p className="text-xs text-gray-400 mt-0.5">
+                        vs last month <span className={`font-semibold ${expenseChange <= 0 ? 'text-emerald-600' : 'text-red-600'}`}>{expenseChange >= 0 ? '+' : ''}{capPercent(expenseChange)}%</span>
+                    </p>
                 </div>
-
-                {/* Net savings */}
-                <div className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm">
-                    <div className="flex items-center justify-between mb-3">
+                <div>
+                    <div className="flex items-center gap-2 mb-1">
+                        <BanknotesIcon className="h-4 w-4 text-blue-500" />
                         <span className="text-xs font-medium text-gray-500 uppercase tracking-wider">Net Savings</span>
-                        <div className="p-1.5 bg-blue-100 rounded-lg">
-                            <BanknotesIcon className="h-4 w-4 text-blue-600" />
-                        </div>
                     </div>
                     <p className={`text-2xl font-bold ${netSavings >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
                         {netSavings >= 0 ? '+' : ''}KSh {Math.abs(netSavings).toLocaleString('en-KE', { minimumFractionDigits: 0 })}
                     </p>
-                    <p className="text-xs text-gray-400 mt-2">This month</p>
+                    <p className="text-xs text-gray-400 mt-0.5">This month</p>
                 </div>
             </div>
 
+            {/* Simple income vs expenses chart */}
+            {monthlyData.length > 0 && (
+                <div className="mb-8">
+                    <ResponsiveContainer width="100%" height={100}>
+                        <BarChart data={monthlyData} barGap={1} barSize={12}>
+                            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
+                            <XAxis dataKey="month" tick={{ fontSize: 10 }} axisLine={false} tickLine={false} />
+                            <YAxis hide />
+                            <Tooltip
+                                contentStyle={{ borderRadius: '12px', border: '1px solid #e5e7eb', fontSize: '12px' }}
+                                formatter={(val) => [`KSh ${Number(val).toLocaleString()}`, undefined]}
+                            />
+                            <Bar dataKey="income" fill="#10B981" radius={[3, 3, 0, 0]} name="Income" />
+                            <Bar dataKey="expenses" fill="#EF4444" radius={[3, 3, 0, 0]} name="Expenses" />
+                        </BarChart>
+                    </ResponsiveContainer>
+                </div>
+            )}
+
             {/* Cards section */}
-            {accounts.length === 0 ? (
+                {accounts.length === 0 ? (
                 <div className="bg-white rounded-2xl border-2 border-dashed border-gray-200 px-6 py-16 text-center">
                     <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-[#C85D3A]/10 flex items-center justify-center">
                         <BanknotesIcon className="h-8 w-8 text-[#C85D3A]" />
@@ -296,15 +298,15 @@ export default function Accounts({
                     <p className="text-sm text-gray-500 mb-6 max-w-md mx-auto">
                         Add your first account to start tracking your finances. Upload a bank statement and we'll do the rest.
                     </p>
-                    <button
-                        onClick={openModal}
+                        <button
+                            onClick={openModal}
                         className="inline-flex items-center gap-2 px-6 py-3 bg-[#C85D3A] text-white rounded-xl font-medium hover:bg-[#B85450] transition-all shadow-sm"
-                    >
+                        >
                         <PlusIcon className="h-5 w-5" />
                         Add your first account
-                    </button>
-                </div>
-            ) : (
+                        </button>
+                    </div>
+                ) : (
                 <div className="mb-8">
                     <div className="flex items-center justify-between mb-4">
                         <div>
@@ -327,9 +329,18 @@ export default function Accounts({
                             style={{ scrollbarWidth: 'none', msOverflowStyle: 'none', WebkitOverflowScrolling: 'touch' }}
                         >
                             {accounts.map((account) => (
-                                <Link key={account.id} href={`/accounts/${account.id}`} className="flex-shrink-0">
-                                    <AccountCard account={account} />
-                                </Link>
+                                <div key={account.id} className="flex-shrink-0 relative group">
+                                    <Link href={`/accounts/${account.id}`}>
+                                        <AccountCard account={account} />
+                                    </Link>
+                                    <button
+                                        onClick={(e) => { e.preventDefault(); e.stopPropagation(); setDeleteConfirmId(account.id); }}
+                                        className="absolute top-2 right-2 p-1.5 rounded-lg bg-black/40 text-white opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-600"
+                                        title="Delete account"
+                                    >
+                                        <TrashIcon className="h-4 w-4" />
+                                    </button>
+                                </div>
                             ))}
                             {/* Add card button */}
                             <button
@@ -342,9 +353,9 @@ export default function Accounts({
                                 <span className="text-sm font-medium text-gray-500 group-hover:text-[#C85D3A] transition-colors">Add new account</span>
                             </button>
                         </div>
+                        </div>
                     </div>
-                </div>
-            )}
+                )}
 
             {/* Recent transactions section */}
             {recentTransactions.length > 0 && (
@@ -356,37 +367,56 @@ export default function Accounts({
                         </Link>
                     </div>
                     <div className="divide-y divide-gray-50">
-                        {recentTransactions.slice(0, 8).map((transaction) => (
-                            <div key={transaction.id} className="px-6 py-4 flex items-center justify-between hover:bg-gray-50/50 transition-colors">
-                                <div className="flex items-center gap-4">
-                                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${transaction.type === 'income' ? 'bg-emerald-100' : 'bg-red-100'}`}>
-                                        {transaction.type === 'income'
-                                            ? <ArrowUpIcon className="h-5 w-5 text-emerald-600" />
-                                            : <ArrowDownIcon className="h-5 w-5 text-red-600" />
-                                        }
-                                    </div>
-                                    <div>
-                                        <p className="text-sm font-medium text-gray-900">{transaction.category || 'Uncategorised'}</p>
-                                        <p className="text-xs text-gray-500 truncate max-w-[200px]">
-                                            {transaction.description || transaction.account?.provider || 'Transaction'}
+                        {recentTransactions.slice(0, 8).map((transaction) => {
+                            const { action, displayLabel } = parseTransactionLabel(transaction);
+                            const style = getActionStyle(action);
+                            const theme = transaction.account ? getProviderTheme(transaction.account.provider) : null;
+                            const cardBg = theme ? theme.bg : '#374151';
+                            const cardTxt = theme ? (theme.text || '#fff') : '#fff';
+                            return (
+                                <div key={transaction.id} className="px-5 py-3.5 flex items-center gap-3 hover:bg-gray-50/50 transition-colors">
+                                    <div className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: style.icon === 'up' ? '#10B981' : style.icon === 'transfer' ? '#3B82F6' : '#EF4444' }} />
+                                    <div className="flex-1 min-w-0">
+                                        <p className="text-sm font-semibold text-gray-900 truncate">{displayLabel}</p>
+                                        <p className="text-xs text-gray-400">
+                                            {new Date(transaction.transaction_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
                                         </p>
                                     </div>
-                                </div>
-                                <div className="text-right">
-                                    <p className={`text-sm font-semibold ${transaction.type === 'income' ? 'text-emerald-600' : 'text-red-600'}`}>
+                                    <div className="flex-shrink-0 w-12 h-8 rounded-md flex items-center justify-center shadow-sm" style={{ background: `linear-gradient(135deg, ${cardBg}, ${theme?.bgEnd || cardBg})` }}>
+                                        <span className="text-[10px] font-bold" style={{ color: cardTxt }}>{transaction.account?.provider?.slice(0, 4)?.toUpperCase() || '?'}</span>
+                                    </div>
+                                    <p className={`text-sm font-bold flex-shrink-0 ${transaction.type === 'income' ? 'text-emerald-600' : 'text-red-600'}`}>
                                         {transaction.type === 'income' ? '+' : '-'}KSh {parseFloat(transaction.amount).toLocaleString('en-KE', { minimumFractionDigits: 2 })}
                                     </p>
-                                    <p className="text-xs text-gray-400">
-                                        {new Date(transaction.transaction_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                                    </p>
                                 </div>
-                            </div>
-                        ))}
+                            );
+                        })}
                     </div>
-                </div>
+            </div>
             )}
 
             <style>{`.scrollbar-hide::-webkit-scrollbar { display: none; }`}</style>
+
+            {/* Delete account confirmation modal */}
+            {deleteConfirmId && typeof document !== 'undefined' && createPortal(
+                <div className="fixed inset-0 z-[100] overflow-y-auto" aria-modal="true">
+                    <div className="flex items-center justify-center min-h-screen px-4 py-8">
+                        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setDeleteConfirmId(null)} />
+                        <div className="relative z-10 bg-white rounded-2xl shadow-2xl max-w-sm w-full p-6 text-center">
+                            <div className="mx-auto w-12 h-12 rounded-full bg-red-100 flex items-center justify-center mb-4">
+                                <TrashIcon className="h-6 w-6 text-red-600" />
+                            </div>
+                            <h3 className="text-lg font-semibold text-gray-900 mb-2">Delete Account</h3>
+                            <p className="text-sm text-gray-500 mb-6">This will permanently delete this account and all its transactions. This action cannot be undone.</p>
+                            <div className="flex gap-3 justify-center">
+                                <button onClick={() => setDeleteConfirmId(null)} className="px-5 py-2.5 text-sm font-medium text-gray-700 bg-white border border-gray-200 rounded-xl hover:bg-gray-50 transition-all">Cancel</button>
+                                <button onClick={() => handleDeleteAccount(deleteConfirmId)} className="px-5 py-2.5 text-sm font-medium text-white bg-red-600 rounded-xl hover:bg-red-700 transition-all">Delete</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>,
+                document.body
+            )}
 
             {/* Add account modal - multi-step with live card preview */}
             {isModalOpen && typeof document !== 'undefined' && createPortal(
@@ -430,37 +460,37 @@ export default function Accounts({
                                                 </div>
                                             )}
 
-                                            <div>
+                                    <div>
                                                 <label className="block text-sm font-medium text-gray-700 mb-1.5">Provider</label>
-                                                <select
-                                                    value={data.provider}
-                                                    onChange={(e) => setData('provider', e.target.value)}
+                                        <select
+                                            value={data.provider}
+                                            onChange={(e) => setData('provider', e.target.value)}
                                                     className={`w-full px-3 py-2.5 rounded-xl bg-white text-sm outline-none transition-all border ${fieldBorderClass(errors.provider, data.provider)}`}
-                                                    required
-                                                >
+                                            required
+                                        >
                                                     <option value="">Select your bank or provider</option>
-                                                    {PROVIDER_CATEGORIES.map((cat) => (
-                                                        <optgroup key={cat.id} label={`${cat.icon} ${cat.name}`}>
-                                                            {cat.providers.map((p) => (
-                                                                <option key={p.id} value={p.name}>{p.name}</option>
-                                                            ))}
-                                                        </optgroup>
+                                            {PROVIDER_CATEGORIES.map((cat) => (
+                                                <optgroup key={cat.id} label={`${cat.icon} ${cat.name}`}>
+                                                    {cat.providers.map((p) => (
+                                                        <option key={p.id} value={p.name}>{p.name}</option>
                                                     ))}
-                                                </select>
+                                                </optgroup>
+                                            ))}
+                                        </select>
                                                 {errors.provider && <p className="text-red-600 text-xs mt-1">{errors.provider}</p>}
-                                            </div>
+                                    </div>
 
                                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                                <div>
+                                    <div>
                                                     <label className="block text-sm font-medium text-gray-700 mb-1.5">Account Name</label>
-                                                    <input
-                                                        type="text"
-                                                        value={data.account_name}
-                                                        onChange={(e) => setData('account_name', e.target.value)}
+                                        <input
+                                            type="text"
+                                            value={data.account_name}
+                                            onChange={(e) => setData('account_name', e.target.value)}
                                                         className={`w-full px-3 py-2.5 rounded-xl bg-white text-sm outline-none transition-all border ${fieldBorderClass(errors.account_name, data.account_name)}`}
                                                         placeholder="e.g., Personal Savings"
-                                                        required
-                                                    />
+                                            required
+                                        />
                                                     {errors.account_name && <p className="text-red-600 text-xs mt-1">{errors.account_name}</p>}
                                                 </div>
                                                 <div>
@@ -475,47 +505,47 @@ export default function Accounts({
                                                         placeholder="e.g., 5643"
                                                     />
                                                 </div>
-                                            </div>
+                                    </div>
 
                                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                                <div>
+                                    <div>
                                                     <label className="block text-sm font-medium text-gray-700 mb-1.5">Account Type</label>
-                                                    <select
-                                                        value={data.account_type}
-                                                        onChange={(e) => setData('account_type', e.target.value)}
+                                        <select
+                                            value={data.account_type}
+                                            onChange={(e) => setData('account_type', e.target.value)}
                                                         className={`w-full px-3 py-2.5 rounded-xl bg-white text-sm outline-none transition-all border ${fieldBorderClass(null, data.account_type)}`}
-                                                    >
-                                                        {accountTypes.map((t) => (
-                                                            <option key={t.value} value={t.value}>{t.label}</option>
-                                                        ))}
-                                                    </select>
-                                                </div>
-                                                <div>
+                                        >
+                                            {accountTypes.map((t) => (
+                                                <option key={t.value} value={t.value}>{t.label}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                    <div>
                                                     <label className="block text-sm font-medium text-gray-700 mb-1.5">Currency</label>
-                                                    <select
-                                                        value={data.currency}
-                                                        onChange={(e) => setData('currency', e.target.value)}
+                                            <select
+                                                value={data.currency}
+                                                onChange={(e) => setData('currency', e.target.value)}
                                                         className={`w-full px-3 py-2.5 rounded-xl bg-white text-sm outline-none transition-all border ${fieldBorderClass(errors.currency, data.currency)}`}
-                                                    >
-                                                        {CURRENCIES.map((c) => (
-                                                            <option key={c.value} value={c.value}>{c.label}</option>
-                                                        ))}
-                                                    </select>
+                                            >
+                                                {CURRENCIES.map((c) => (
+                                                    <option key={c.value} value={c.value}>{c.label}</option>
+                                                ))}
+                                            </select>
                                                 </div>
                                             </div>
 
                                             <div>
                                                 <label className="block text-sm font-medium text-gray-700 mb-1.5">Current Balance</label>
-                                                <input
-                                                    type="number"
-                                                    step="0.01"
-                                                    min="0"
-                                                    value={data.balance}
-                                                    onChange={(e) => setData('balance', e.target.value)}
+                                            <input
+                                                type="number"
+                                                step="0.01"
+                                                min="0"
+                                                value={data.balance}
+                                                onChange={(e) => setData('balance', e.target.value)}
                                                     className={`w-full px-3 py-2.5 rounded-xl bg-white text-sm outline-none transition-all border ${fieldBorderClass(errors.balance, data.balance && data.balance !== '0.00' ? data.balance : null)}`}
-                                                    placeholder="0.00"
-                                                    required
-                                                />
+                                                placeholder="0.00"
+                                                required
+                                            />
                                                 {errors.balance && <p className="text-red-600 text-xs mt-1">{errors.balance}</p>}
                                             </div>
 
@@ -542,14 +572,14 @@ export default function Accounts({
                                                     <p className="text-sm font-medium text-gray-900">Upload transaction statements</p>
                                                     <p className="text-xs text-gray-500">Drop CSV or PDF files from {data.provider || 'your provider'}. We'll extract transactions automatically.</p>
                                                 </div>
-                                            </div>
+                                    </div>
 
-                                            <FileUploadZone
-                                                value={data.statement_files}
-                                                onChange={(files) => setData('statement_files', files)}
-                                                maxFiles={5}
-                                                className={errors.statement_files ? '!border-red-500' : (data.statement_files?.length > 0 ? '!border-emerald-500' : '')}
-                                            />
+                                        <FileUploadZone
+                                            value={data.statement_files}
+                                            onChange={(files) => setData('statement_files', files)}
+                                            maxFiles={5}
+                                            className={errors.statement_files ? '!border-red-500' : (data.statement_files?.length > 0 ? '!border-emerald-500' : '')}
+                                        />
                                             {errors.statement_files && <p className="text-red-600 text-xs mt-1">{errors.statement_files}</p>}
 
                                             <div className="flex items-center justify-between pt-2">
@@ -557,22 +587,22 @@ export default function Accounts({
                                                     Back
                                                 </button>
                                                 <div className="flex gap-3">
-                                                    <button
+                                        <button
                                                         type="submit"
                                                         disabled={processing}
                                                         className="px-4 py-2.5 text-sm font-medium text-gray-600 border border-gray-300 rounded-xl hover:bg-gray-50 transition-all"
                                                         onClick={() => setData('statement_files', [])}
                                                     >
                                                         Skip & Create
-                                                    </button>
-                                                    <button
-                                                        type="submit"
+                                        </button>
+                                        <button
+                                            type="submit"
                                                         disabled={processing || !data.statement_files?.length}
                                                         className="px-6 py-2.5 bg-[#C85D3A] text-white rounded-xl font-medium hover:bg-[#B85450] disabled:opacity-40 disabled:cursor-not-allowed transition-all"
-                                                    >
+                                        >
                                                         {processing ? 'Processing...' : 'Create Account'}
-                                                    </button>
-                                                </div>
+                                        </button>
+                                    </div>
                                             </div>
                                         </div>
                                     )}
@@ -588,9 +618,22 @@ export default function Accounts({
             {isProcessingModalOpen && typeof document !== 'undefined' && createPortal(
                 <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/60 backdrop-blur-sm" aria-modal="true" role="dialog">
                     <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full mx-4 p-8">
-                        {processingStep !== 'done' ? (
+                        {processingStep === 'error' ? (
                             <div className="text-center">
-                                {/* Animated rings */}
+                                <div className="mx-auto w-16 h-16 rounded-full bg-red-100 flex items-center justify-center mb-4">
+                                    <XMarkIcon className="h-8 w-8 text-red-600" />
+                                </div>
+                                <h3 className="text-lg font-semibold text-gray-900 mb-2">Something went wrong</h3>
+                                <p className="text-sm text-gray-500 mb-6">{processingError || 'The file could not be processed. Please check the format and try again.'}</p>
+                                <button
+                                    onClick={() => { setIsProcessingModalOpen(false); setProcessingStep('idle'); setProcessingError(null); setIsModalOpen(true); setModalStep(2); }}
+                                    className="px-5 py-2.5 bg-[#C85D3A] text-white rounded-xl font-medium hover:bg-[#B85450] transition-all text-sm"
+                                >
+                                    Try again
+                                </button>
+                            </div>
+                        ) : processingStep !== 'done' ? (
+                            <div className="text-center">
                                 <div className="relative mx-auto w-20 h-20 mb-6">
                                     <div className="absolute inset-0 rounded-full border-4 border-[#C85D3A]/20 animate-ping" style={{ animationDuration: '2s' }} />
                                     <div className="absolute inset-2 rounded-full border-4 border-[#C85D3A]/30 animate-ping" style={{ animationDuration: '1.5s', animationDelay: '0.3s' }} />
@@ -603,8 +646,6 @@ export default function Accounts({
                                         })()}
                                     </div>
                                 </div>
-
-                                {/* Step progress */}
                                 <div className="space-y-3 mb-6">
                                     {processingSteps.map((step, i) => {
                                         const currentIdx = processingSteps.findIndex(s => s.key === processingStep);

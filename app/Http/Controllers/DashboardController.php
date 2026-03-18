@@ -14,8 +14,27 @@ class DashboardController extends Controller
     {
         $user = $request->user();
         $accounts = $user->accounts;
-        
-        // Get recent transactions (last 10)
+
+        // Pick the latest transaction from each account (max 5 accounts)
+        $latestTransactions = collect();
+        foreach ($accounts->take(5) as $account) {
+            $tx = $user->transactions()
+                ->where('account_id', $account->id)
+                ->with('account')
+                ->orderBy('transaction_date', 'desc')
+                ->orderBy('created_at', 'desc')
+                ->first();
+            if ($tx) {
+                $latestTransactions->push($tx);
+            }
+        }
+        // Sort by date desc, take 5
+        $latestTransactions = $latestTransactions
+            ->sortByDesc('transaction_date')
+            ->values()
+            ->take(5);
+
+        // Also get recent 10 for the full list section
         $recentTransactions = $user->transactions()
             ->with('account')
             ->orderBy('transaction_date', 'desc')
@@ -23,31 +42,42 @@ class DashboardController extends Controller
             ->take(10)
             ->get();
 
-        // Get monthly data for last 6 months
+        // All unique transaction names/counterparties for search suggestions
+        $searchSuggestions = $user->transactions()
+            ->with('account')
+            ->orderBy('transaction_date', 'desc')
+            ->take(200)
+            ->get()
+            ->map(function ($t) {
+                return [
+                    'description' => $t->description,
+                    'category' => $t->category,
+                    'account_name' => $t->account?->account_name,
+                    'provider' => $t->account?->provider,
+                ];
+            })
+            ->flatMap(function ($item) {
+                return array_filter(array_values($item));
+            })
+            ->unique()
+            ->values()
+            ->take(50)
+            ->toArray();
+
+        // Monthly data for last 6 months
         $monthlyData = [];
         for ($i = 5; $i >= 0; $i--) {
             $month = Carbon::now()->subMonths($i);
-            $startDate = $month->copy()->startOfMonth();
-            $endDate = $month->copy()->endOfMonth();
-
-            $income = $user->transactions()
-                ->where('type', 'income')
-                ->whereBetween('transaction_date', [$startDate, $endDate])
-                ->sum('amount') ?? 0;
-
-            $expenses = $user->transactions()
-                ->where('type', 'expense')
-                ->whereBetween('transaction_date', [$startDate, $endDate])
-                ->sum('amount') ?? 0;
-
+            $start = $month->copy()->startOfMonth();
+            $end = $month->copy()->endOfMonth();
             $monthlyData[] = [
                 'month' => $month->format('M'),
-                'income' => (float) $income,
-                'expenses' => (float) $expenses,
+                'income' => (float) ($user->transactions()->where('type', 'income')->whereBetween('transaction_date', [$start, $end])->sum('amount') ?? 0),
+                'expenses' => (float) ($user->transactions()->where('type', 'expense')->whereBetween('transaction_date', [$start, $end])->sum('amount') ?? 0),
             ];
         }
 
-        // Get spending by category (this month)
+        // Spending by category (this month)
         $categoryData = $user->transactions()
             ->where('type', 'expense')
             ->whereMonth('transaction_date', Carbon::now()->month)
@@ -55,21 +85,16 @@ class DashboardController extends Controller
             ->selectRaw('category, SUM(amount) as total')
             ->groupBy('category')
             ->get()
-            ->map(function ($item) {
-                return [
-                    'name' => $item->category,
-                    'value' => (float) $item->total,
-                ];
-            })
+            ->map(fn($item) => ['name' => $item->category, 'value' => (float) $item->total])
             ->toArray();
 
         return Inertia::render('Dashboard', [
             'accounts' => $accounts,
+            'latestTransactions' => $latestTransactions,
             'recentTransactions' => $recentTransactions,
+            'searchSuggestions' => $searchSuggestions,
             'monthlyData' => $monthlyData,
             'categoryData' => $categoryData,
         ]);
     }
 }
-
-

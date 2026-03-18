@@ -7,8 +7,11 @@ import { resolvePageComponent } from 'laravel-vite-plugin/inertia-helpers';
 
 const appName = 'Ombr Finance';
 
+window.__ombrSkipLoading = false;
+
 function createLoadingOverlay() {
     if (document.getElementById('ombr-loading-overlay')) return;
+    if (window.__ombrSkipLoading) return;
 
     const overlay = document.createElement('div');
     overlay.id = 'ombr-loading-overlay';
@@ -20,7 +23,8 @@ function createLoadingOverlay() {
                     <div class="ombr-coin-front">
                         <svg viewBox="0 0 40 40" fill="none">
                             <circle cx="20" cy="20" r="18" stroke="#C85D3A" stroke-width="2"/>
-                            <text x="20" y="25" text-anchor="middle" fill="#C85D3A" font-size="14" font-weight="bold" font-family="Inter, sans-serif">O</text>
+                            <rect x="14" y="14" width="7" height="7" rx="0.5" stroke="#C85D3A" stroke-width="1.5" fill="none" transform="rotate(45 17.5 17.5)"/>
+                            <rect x="21" y="14" width="7" height="7" rx="0.5" stroke="#C85D3A" stroke-width="1.5" fill="none" transform="rotate(45 24.5 17.5)"/>
                         </svg>
                     </div>
                     <div class="ombr-coin-back">

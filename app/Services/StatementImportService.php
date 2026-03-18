@@ -132,31 +132,50 @@ class StatementImportService
             throw new \RuntimeException('The uploaded file appears to be empty.');
         }
 
-        // Strip UTF-8 BOM so header matching works
+        // Strip UTF-8 BOM
         $content = preg_replace('/^\xEF\xBB\xBF/', '', $content);
-        $lines = preg_split('/\r\n|\r|\n/', $content, 2);
-        $firstLine = $lines[0] ?? '';
-        $rest = $lines[1] ?? '';
+        $allLines = preg_split('/\r\n|\r|\n/', $content, -1, PREG_SPLIT_NO_EMPTY);
 
-        $delimiters = [',', ';', "\t", '|'];
+        if (empty($allLines)) {
+            throw new \RuntimeException('The uploaded file appears to be empty.');
+        }
+
+        // Find the header row by scanning lines for one with recognized columns
         $header = [];
         $delimiter = ',';
+        $headerLineIndex = null;
+        $delimiters = [',', ';', "\t", '|'];
 
-        foreach ($delimiters as $d) {
-            $header = str_getcsv($firstLine, $d);
-            $header = array_map(static fn ($h) => strtolower(trim((string) $h)), $header);
-            $header = array_values(array_filter($header, static fn ($h) => $h !== ''));
-            if (count($header) < 2) {
-                continue;
+        foreach ($allLines as $lineIdx => $rawLine) {
+            $rawLine = trim($rawLine);
+            if ($rawLine === '') continue;
+
+            foreach ($delimiters as $d) {
+                $candidate = str_getcsv($rawLine, $d);
+                $candidate = array_map(static fn ($h) => strtolower(trim((string) $h)), $candidate);
+                $candidate = array_values(array_filter($candidate, static fn ($h) => $h !== ''));
+
+                if (count($candidate) < 2) continue;
+
+                $dateIdx = $this->findFirstIndex($candidate, $this->getDateHeaderCandidates());
+                $amtIdx = $this->findFirstIndex($candidate, $this->getAmountHeaderCandidates());
+                $debIdx = $this->findFirstIndex($candidate, $this->getDebitHeaderCandidates());
+                $credIdx = $this->findFirstIndex($candidate, $this->getCreditHeaderCandidates());
+
+                if ($dateIdx !== null && ($amtIdx !== null || $debIdx !== null || $credIdx !== null)) {
+                    $header = $candidate;
+                    $delimiter = $d;
+                    $headerLineIndex = $lineIdx;
+                    break 2;
+                }
             }
-            $dateIdx = $this->findFirstIndex($header, $this->getDateHeaderCandidates());
-            $amtIdx = $this->findFirstIndex($header, $this->getAmountHeaderCandidates());
-            $debIdx = $this->findFirstIndex($header, $this->getDebitHeaderCandidates());
-            $credIdx = $this->findFirstIndex($header, $this->getCreditHeaderCandidates());
-            if ($dateIdx !== null && ($amtIdx !== null || $debIdx !== null || $credIdx !== null)) {
-                $delimiter = $d;
-                break;
-            }
+        }
+
+        if ($headerLineIndex === null) {
+            $firstLine = $allLines[0] ?? '';
+            throw new \RuntimeException(
+                'Could not find required columns. The file needs a date column and an amount (or debit/credit) column. First line: "' . substr($firstLine, 0, 200) . '". If your export uses different names, share it to extend support.'
+            );
         }
 
         $dateIndex = $this->findFirstIndex($header, $this->getDateHeaderCandidates());
@@ -169,12 +188,12 @@ class StatementImportService
 
         if ($dateIndex === null || ($amountIndex === null && $debitIndex === null && $creditIndex === null)) {
             throw new \RuntimeException(
-                'Could not find required columns. The file needs a date column and an amount (or debit/credit) column. First line: "' . substr($firstLine, 0, 200) . '". Headers we see: [' . implode(', ', $header) . ']. If your export uses different names, add the first line to FORMATS.md or share it to extend support.'
+                'Could not find required columns. Headers we see: [' . implode(', ', $header) . '].'
             );
         }
 
         $rows = [];
-        $dataLines = preg_split('/\r\n|\r|\n/', $rest, -1, PREG_SPLIT_NO_EMPTY);
+        $dataLines = array_slice($allLines, $headerLineIndex + 1);
         $maxIndex = (int) max(
             $dateIndex,
             $descriptionIndex ?? 0,
@@ -202,7 +221,7 @@ class StatementImportService
             }
 
             // Skip if this looks like a repeated header row
-            if (in_array($rawDate, ['date', 'transaction date', 'value date', 'completion time'], true)) {
+            if (in_array(strtolower($rawDate), ['date', 'transaction date', 'value date', 'completion time', 'timestamp'], true)) {
                 continue;
             }
 
@@ -229,9 +248,9 @@ class StatementImportService
 
             if ($typeIndex !== null && isset($row[$typeIndex])) {
                 $rawType = strtolower(trim((string) $row[$typeIndex]));
-                if (in_array($rawType, ['income', 'credit', 'cr', 'c'], true)) {
+                if (in_array($rawType, ['income', 'credit', 'cr', 'c', 'receive', 'buy'], true)) {
                     $type = 'income';
-                } elseif (in_array($rawType, ['expense', 'debit', 'dr', 'd'], true)) {
+                } elseif (in_array($rawType, ['expense', 'debit', 'dr', 'd', 'send', 'sell', 'convert'], true)) {
                     $type = 'expense';
                 }
             }
@@ -261,7 +280,7 @@ class StatementImportService
     private function getDateHeaderCandidates(): array
     {
         return [
-            'date', 'transaction date', 'value date', 'trans date', 'completion time', 'posting date', 'booking date',
+            'date', 'transaction date', 'value date', 'trans date', 'completion time', 'timestamp', 'posting date', 'booking date',
             'transaction date and time', 'date/time', 'time', 'transaction time', 'created', 'processed date',
             'cleared date', 'settlement date', 'effective date', 'transaction time (ect)', 'initiation time',
         ];
@@ -272,6 +291,7 @@ class StatementImportService
     {
         return [
             'description', 'details', 'narration', 'memo', 'particulars', 'narrative', 'reference', 'remarks',
+            'notes', 'asset',
             'transaction details', 'transaction reference', 'recipient', 'sender', 'payee', 'payer', 'name',
             'details_2', 'transaction particulars', 'payment details', 'beneficiary', 'counter party',
             'transaction narrative', 'transaction description', 'remarks_2', 'narrative_2', 'transaction_ref',
@@ -284,6 +304,7 @@ class StatementImportService
         return [
             'amount', 'amt', 'transaction amount', 'total', 'sum', 'value', 'transaction amount (account currency)',
             'amount (local)', 'amount (usd)', 'gross amount', 'net amount',
+            'subtotal', 'total (inclusive of fees and/or spread)', 'quantity transacted',
         ];
     }
 
