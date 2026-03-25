@@ -45,21 +45,24 @@ class StatementImportService
 
     /**
      * Create transactions from already-parsed rows and update account balance.
+     * Uses chunked bulk INSERT so large statements do not hit PHP's max execution time.
      *
      * @param array<int, array<string, mixed>> $rows
      * @return int Number of transactions created
      */
     public function importFromRows(array $rows, User $user, Account $account, string $defaultCategory = 'Imported'): int
     {
-        $createdCount = 0;
+        $now = now()->toDateTimeString();
+        $toInsert = [];
+        $balanceDelta = 0.0;
 
         foreach ($rows as $row) {
-            if (!isset($row['date'], $row['amount'], $row['type'])) {
+            if (! isset($row['date'], $row['amount'], $row['type'])) {
                 continue;
             }
 
             $date = $this->parseDate($row['date']);
-            if (!$date) {
+            if (! $date) {
                 continue;
             }
 
@@ -69,39 +72,57 @@ class StatementImportService
             }
 
             $type = $row['type'] === 'income' ? 'income' : 'expense';
+            $absAmount = round(abs($amount), 2);
 
             $description = isset($row['description']) ? (string) $row['description'] : null;
             if ($description !== null && strlen($description) > 65535) {
                 $description = substr($description, 0, 65535);
             }
 
-            $transaction = Transaction::create([
+            if ($type === 'income') {
+                $balanceDelta += $absAmount;
+            } else {
+                $balanceDelta -= $absAmount;
+            }
+
+            $toInsert[] = [
                 'user_id' => $user->id,
                 'account_id' => $account->id,
                 'type' => $type,
-                'amount' => abs($amount),
+                'amount' => $absAmount,
                 'category' => $row['category'] ?? $defaultCategory,
                 'description' => $description,
                 'transaction_date' => $date->toDateString(),
+                'transfer_to_account_id' => null,
                 'payment_method' => $row['payment_method'] ?? null,
                 'reference_number' => $row['reference'] ?? null,
-                'is_recurring' => false,
+                'is_recurring' => 0,
                 'recurring_frequency' => null,
                 'notes' => null,
-            ]);
-
-            if ($type === 'income') {
-                $account->balance += $transaction->amount;
-            } else {
-                $account->balance -= $transaction->amount;
-            }
-
-            $createdCount++;
+                'created_at' => $now,
+                'updated_at' => $now,
+            ];
         }
 
-        $account->save();
+        $createdCount = count($toInsert);
+        foreach (array_chunk($toInsert, $this->importInsertChunkSize()) as $chunk) {
+            Transaction::insert($chunk);
+        }
+
+        if ($createdCount > 0) {
+            $account->balance = (float) $account->balance + $balanceDelta;
+            $account->save();
+        }
 
         return $createdCount;
+    }
+
+    /**
+     * SQLite allows at most 999 bound parameters per statement; keep chunks small there.
+     */
+    private function importInsertChunkSize(): int
+    {
+        return config('database.default') === 'sqlite' ? 50 : 500;
     }
 
     /**

@@ -15,7 +15,7 @@ import {
     ExclamationTriangleIcon,
     XMarkIcon,
 } from '@heroicons/react/24/outline';
-import { useForm } from '@inertiajs/react';
+import { useForm, router } from '@inertiajs/react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
 const periodLabels = { weekly: 'Weekly', monthly: 'Monthly', yearly: 'Yearly' };
@@ -139,7 +139,109 @@ function BudgetOnboarding({ onCreateFirst }) {
     );
 }
 
-export default function Budgets({ budgets = [], categories = [], totalBalance = 0 }) {
+function CategoryKeywordManager({ expenseCategories = [], categoryKeywords = [] }) {
+    const keywordForm = useForm({
+        category: '',
+        keyword: '',
+    });
+
+    const addKeyword = (e) => {
+        e.preventDefault();
+        keywordForm.post('/budgets/category-keywords', {
+            preserveScroll: true,
+            onSuccess: () => keywordForm.reset(),
+        });
+    };
+
+    const removeKeyword = (id) => {
+        if (!confirm('Remove this keyword?')) return;
+        router.delete(`/budgets/category-keywords/${id}`, { preserveScroll: true });
+    };
+
+    return (
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 sm:p-6 mb-8">
+            <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 mb-4">
+                <div>
+                    <h2 className="text-base font-semibold text-gray-900">Your merchant keywords</h2>
+                    <p className="text-sm text-gray-500 mt-1 max-w-2xl">
+                        When a transaction is imported/uncategorised, we also match the description to these keywords so it counts toward the right budget category.
+                    </p>
+                </div>
+            </div>
+
+            <form onSubmit={addKeyword} className="flex flex-col sm:flex-row gap-3 sm:items-end mb-5">
+                <div className="flex-1 min-w-0">
+                    <label className="block text-xs font-medium text-gray-600 mb-1">Category</label>
+                    <select
+                        value={keywordForm.data.category}
+                        onChange={(e) => keywordForm.setData('category', e.target.value)}
+                        className="w-full px-3 py-2.5 border border-gray-300 rounded-xl text-sm focus:ring-2 focus:ring-[#C85D3A]/20 focus:border-[#C85D3A] outline-none"
+                        required
+                    >
+                        <option value="">Select category</option>
+                        {expenseCategories.map((cat) => (
+                            <option key={cat.id} value={cat.name}>
+                                {cat.icon} {cat.name}
+                            </option>
+                        ))}
+                    </select>
+                    {keywordForm.errors.category && <p className="text-red-600 text-xs mt-1">{keywordForm.errors.category}</p>}
+                </div>
+
+                <div className="flex-1 min-w-0 sm:max-w-xs">
+                    <label className="block text-xs font-medium text-gray-600 mb-1">Description contains</label>
+                    <input
+                        type="text"
+                        value={keywordForm.data.keyword}
+                        onChange={(e) => keywordForm.setData('keyword', e.target.value)}
+                        className="w-full px-3 py-2.5 border border-gray-300 rounded-xl text-sm focus:ring-2 focus:ring-[#C85D3A]/20 focus:border-[#C85D3A] outline-none"
+                        placeholder="e.g. KPLC, Safaricom, TOKENS"
+                        maxLength={120}
+                        required
+                    />
+                    {keywordForm.errors.keyword && <p className="text-red-600 text-xs mt-1">{keywordForm.errors.keyword}</p>}
+                </div>
+
+                <button
+                    type="submit"
+                    disabled={keywordForm.processing}
+                    className="inline-flex justify-center items-center px-5 py-2.5 bg-gray-900 text-white rounded-xl text-sm font-medium hover:bg-gray-800 disabled:opacity-50 transition-colors"
+                >
+                    {keywordForm.processing ? 'Adding…' : 'Add keyword'}
+                </button>
+            </form>
+
+            {categoryKeywords.length === 0 ? (
+                <p className="text-sm text-gray-400">No personal keywords yet.</p>
+            ) : (
+                <ul className="divide-y divide-gray-100 border border-gray-100 rounded-xl overflow-hidden">
+                    {categoryKeywords.map((row) => (
+                        <li
+                            key={row.id}
+                            className="flex items-center justify-between gap-3 px-4 py-2.5 bg-gray-50/80 text-sm"
+                        >
+                            <span className="text-gray-700">
+                                <span className="font-medium text-gray-900">{row.category_label}</span>
+                                <span className="text-gray-400 mx-2">·</span>
+                                contains &quot;{row.keyword}&quot;
+                            </span>
+                            <button
+                                type="button"
+                                onClick={() => removeKeyword(row.id)}
+                                className="p-1.5 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors"
+                                aria-label="Remove keyword"
+                            >
+                                <TrashIcon className="h-4 w-4" />
+                            </button>
+                        </li>
+                    ))}
+                </ul>
+            )}
+        </div>
+    );
+}
+
+export default function Budgets({ budgets = [], categories = [], totalBalance = 0, categoryKeywords = [] }) {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingBudget, setEditingBudget] = useState(null);
 
@@ -209,14 +311,19 @@ export default function Budgets({ budgets = [], categories = [], totalBalance = 
     return (
         <AppLayout title="Budgets" totalBalance={totalBalance}>
             {!hasBudgets ? (
-                <BudgetOnboarding onCreateFirst={() => openModal()} />
+                <>
+                    <BudgetOnboarding onCreateFirst={() => openModal()} />
+                    <CategoryKeywordManager expenseCategories={expenseCategories} categoryKeywords={categoryKeywords} />
+                </>
             ) : (
                 <>
                     {/* Header */}
                     <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-8">
                         <div>
                             <h1 className="text-2xl font-bold text-gray-900">Budgets</h1>
-                            <p className="mt-1 text-sm text-gray-500">Set spending limits and track your progress.</p>
+                            <p className="mt-1 text-sm text-gray-500">
+                                Spending is counted from expenses in the budget category within each period. Assign categories on transactions (or we infer some merchants from descriptions when the category is Imported).
+                            </p>
                         </div>
                         <button
                             onClick={() => openModal()}
@@ -266,6 +373,8 @@ export default function Budgets({ budgets = [], categories = [], totalBalance = 
                         </div>
                     </div>
 
+                    <CategoryKeywordManager expenseCategories={expenseCategories} categoryKeywords={categoryKeywords} />
+
                     {/* Budget list */}
                     <div className="space-y-4">
                         {budgets.map((budget) => {
@@ -305,7 +414,10 @@ export default function Budgets({ budgets = [], categories = [], totalBalance = 
                                                     style={{ width: `${Math.min(progress, 100)}%` }}
                                                 />
                                             </div>
-                                            <div className="flex items-center gap-4 mt-1.5 text-xs text-gray-400">
+                                            <div className="flex items-center gap-4 mt-1.5 text-xs text-gray-400 flex-wrap">
+                                                {budget.spent_period_label && (
+                                                    <span className="text-gray-500">Period: {budget.spent_period_label}</span>
+                                                )}
                                                 <span>Remaining: <span className={`font-medium ${budget.remaining <= 0 ? 'text-red-600' : 'text-gray-600'}`}>{fmt(budget.remaining)}</span></span>
                                                 {budget.alert_enabled && (
                                                     <span className="flex items-center gap-1">

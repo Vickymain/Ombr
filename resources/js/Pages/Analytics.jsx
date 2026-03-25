@@ -75,10 +75,12 @@ const TABS = [
 function StatCard({ label, value, prefix = 'KSh ', icon: Icon, color, change, subtitle, large = false }) {
     return (
         <div className={`bg-white rounded-2xl border border-gray-100 shadow-sm ${large ? 'p-6' : 'p-4'}`}>
-            <div className="flex items-center justify-between mb-2">
-                <span className="text-[11px] font-medium text-gray-500 uppercase tracking-wider">{label}</span>
+            <div className="flex items-center justify-between mb-2 gap-2">
+                <span className="text-[11px] font-medium text-gray-500 uppercase tracking-wider leading-tight">
+                    {label}
+                </span>
                 {Icon && (
-                    <div className={`p-1.5 ${color} rounded-lg`}>
+                    <div className={`p-1.5 ${color} rounded-lg flex-shrink-0`}>
                         <Icon className="h-3.5 w-3.5" />
                     </div>
                 )}
@@ -250,12 +252,53 @@ export default function Analytics({
                 <div className="space-y-6">
                     {/* Stat cards row */}
                     <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
-                        <StatCard label="Total Balance" value={totalBalance} icon={BanknotesIcon} color="bg-blue-100 text-blue-600" />
-                        <StatCard label="Total Income" value={totalIncome} icon={ArrowTrendingUpIcon} color="bg-emerald-100 text-emerald-600" change={incomeChange} />
-                        <StatCard label="Total Expenses" value={totalExpenses} icon={ArrowTrendingDownIcon} color="bg-red-100 text-red-600" change={expenseChange} />
-                        <StatCard label="Net Profit" value={netProfit} prefix={netProfit < 0 ? '-KSh ' : 'KSh '} icon={ScaleIcon} color="bg-purple-100 text-purple-600" />
-                        <StatCard label="Savings Rate" value={`${savingsRate}%`} prefix="" icon={ShieldCheckIcon} color="bg-teal-100 text-teal-600" />
-                        <StatCard label="Cash Runway" value={`${cashRunwayMonths} mo`} prefix="" icon={ClockIcon} color="bg-amber-100 text-amber-600" />
+                        <StatCard
+                            label="Total Balance"
+                            value={totalBalance}
+                            icon={BanknotesIcon}
+                            color="bg-blue-100 text-blue-600"
+                            hint="Combined balance of the accounts included in the filter (or all accounts)."
+                        />
+                        <StatCard
+                            label="Total Income"
+                            value={totalIncome}
+                            icon={ArrowTrendingUpIcon}
+                            color="bg-emerald-100 text-emerald-600"
+                            change={incomeChange}
+                            hint="All income ever recorded on those accounts. Change compares this calendar month to last month."
+                        />
+                        <StatCard
+                            label="Total Expenses"
+                            value={totalExpenses}
+                            icon={ArrowTrendingDownIcon}
+                            color="bg-red-100 text-red-600"
+                            change={expenseChange}
+                            hint="All expenses ever recorded on those accounts. Change compares this calendar month to last month."
+                        />
+                        <StatCard
+                            label="Net Profit"
+                            value={netProfit}
+                            prefix={netProfit < 0 ? '-KSh ' : 'KSh '}
+                            icon={ScaleIcon}
+                            color="bg-purple-100 text-purple-600"
+                            hint="Total income minus total expenses so far (same account scope). Negative means you’ve spent more than you’ve received overall."
+                        />
+                        <StatCard
+                            label="Savings Rate"
+                            value={`${savingsRate}%`}
+                            prefix=""
+                            icon={ShieldCheckIcon}
+                            color="bg-teal-100 text-teal-600"
+                            hint="Share of total income that is left after total expenses (lifetime in this view: (income − expenses) ÷ income)."
+                        />
+                        <StatCard
+                            label="Cash Runway"
+                            value={`${cashRunwayMonths} mo`}
+                            prefix=""
+                            icon={ClockIcon}
+                            color="bg-amber-100 text-amber-600"
+                            hint="Rough months of cover: current total balance ÷ average monthly expense. Average uses total expenses ÷ chart length (6 or 12)—treat as a guide, not a forecast."
+                        />
                     </div>
 
                     {/* Main charts row */}
@@ -276,7 +319,10 @@ export default function Analytics({
                             </ResponsiveContainer>
                         </ChartCard>
 
-                        <ChartCard title="Expense Breakdown">
+                        <ChartCard
+                            title="Expense breakdown"
+                            description="Groups spending under your expense categories. Imported or uncategorised rows are split using the same merchant keywords as budgets (plus any you set under Budgets → Your merchant keywords)."
+                        >
                             <PieWithLegend data={expenseByCategory} />
                         </ChartCard>
                     </div>
@@ -351,10 +397,40 @@ export default function Analytics({
                 <div className="space-y-6">
                     {/* Top stats */}
                     <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-                        <StatCard label="Total Revenue" value={totalIncome} icon={ArrowTrendingUpIcon} color="bg-emerald-100 text-emerald-600" large />
-                        <StatCard label="Total Expenses" value={totalExpenses} icon={ArrowTrendingDownIcon} color="bg-red-100 text-red-600" large />
-                        <StatCard label="Gross Margin" value={`${grossMargin}%`} prefix="" icon={ScaleIcon} color="bg-purple-100 text-purple-600" large />
-                        <StatCard label="Net Profit (Loss)" value={Math.abs(netProfit)} prefix={netProfit < 0 ? '-KSh ' : 'KSh '} icon={BanknotesIcon} color="bg-blue-100 text-blue-600" large />
+                        <StatCard
+                            label="Total Revenue"
+                            value={totalIncome}
+                            icon={ArrowTrendingUpIcon}
+                            color="bg-emerald-100 text-emerald-600"
+                            large
+                            hint="All income recorded on the filtered accounts."
+                        />
+                        <StatCard
+                            label="Total Expenses"
+                            value={totalExpenses}
+                            icon={ArrowTrendingDownIcon}
+                            color="bg-red-100 text-red-600"
+                            large
+                            hint="All expenses on those accounts; category charts use your category list, not a single “Imported” bucket."
+                        />
+                        <StatCard
+                            label="Gross Margin"
+                            value={`${grossMargin}%`}
+                            prefix=""
+                            icon={ScaleIcon}
+                            color="bg-purple-100 text-purple-600"
+                            large
+                            hint="(Total income − total expenses) ÷ total income, as a percentage."
+                        />
+                        <StatCard
+                            label="Net Profit (Loss)"
+                            value={Math.abs(netProfit)}
+                            prefix={netProfit < 0 ? '-KSh ' : 'KSh '}
+                            icon={BanknotesIcon}
+                            color="bg-blue-100 text-blue-600"
+                            large
+                            hint="Same as total income minus total expenses; sign is shown in the amount prefix."
+                        />
                     </div>
 
                     {/* Revenue & Expenses charts */}
@@ -371,7 +447,10 @@ export default function Analytics({
                             </ResponsiveContainer>
                         </ChartCard>
 
-                        <ChartCard title={`Expenses by Category past ${filterPeriod} months`}>
+                        <ChartCard
+                            title={`Expenses by category (${filterPeriod} months)`}
+                            description="Stacked totals use your category names; imported lines are inferred from descriptions where possible."
+                        >
                             <ResponsiveContainer width="100%" height={300}>
                                 <BarChart data={monthlyCategoryData}>
                                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
@@ -443,7 +522,10 @@ export default function Analytics({
 
                     {/* Expense categories this month */}
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                        <ChartCard title="Expense Breakdown (This Month)">
+                        <ChartCard
+                            title="Expense breakdown (this month)"
+                            description="This month’s spending by your categories (imported rows mapped with merchant keywords)."
+                        >
                             <PieWithLegend data={thisMonthCategoryExpenses} height={260} />
                         </ChartCard>
                         <ChartCard title="Income by Category (All Time)">
@@ -458,12 +540,53 @@ export default function Analytics({
                 <div className="space-y-6">
                     {/* Top stats */}
                     <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
-                        <StatCard label="Cash in Bank" value={totalBalance} icon={BanknotesIcon} color="bg-blue-100 text-blue-600" subtitle="Current" />
-                        <StatCard label="Avg Monthly Income" value={avgMonthlyIncome} icon={ArrowTrendingUpIcon} color="bg-emerald-100 text-emerald-600" />
-                        <StatCard label="Avg Monthly Expense" value={avgMonthlyExpenses} icon={ArrowTrendingDownIcon} color="bg-red-100 text-red-600" />
-                        <StatCard label="Savings Rate" value={`${savingsRate}%`} prefix="" icon={ShieldCheckIcon} color="bg-teal-100 text-teal-600" />
-                        <StatCard label="Expense Ratio" value={`${expenseRatio}%`} prefix="" icon={ChartBarIcon} color="bg-amber-100 text-amber-600" />
-                        <StatCard label="Cash Runway" value={`${cashRunwayMonths}`} prefix="" icon={ClockIcon} color="bg-purple-100 text-purple-600" subtitle="months" />
+                        <StatCard
+                            label="Cash in Bank"
+                            value={totalBalance}
+                            icon={BanknotesIcon}
+                            color="bg-blue-100 text-blue-600"
+                            subtitle="Current"
+                            hint="Same as total balance: sum of account balances in scope."
+                        />
+                        <StatCard
+                            label="Avg Monthly Income"
+                            value={avgMonthlyIncome}
+                            icon={ArrowTrendingUpIcon}
+                            color="bg-emerald-100 text-emerald-600"
+                            hint="Total income ÷ number of months in the chart window (6 or 12)—not calendar-year-only."
+                        />
+                        <StatCard
+                            label="Avg Monthly Expense"
+                            value={avgMonthlyExpenses}
+                            icon={ArrowTrendingDownIcon}
+                            color="bg-red-100 text-red-600"
+                            hint="Total expenses ÷ months in the window. Paired with balance for the runway figure."
+                        />
+                        <StatCard
+                            label="Savings Rate"
+                            value={`${savingsRate}%`}
+                            prefix=""
+                            icon={ShieldCheckIcon}
+                            color="bg-teal-100 text-teal-600"
+                            hint="Portion of lifetime income not spent, as a percentage."
+                        />
+                        <StatCard
+                            label="Expense Ratio"
+                            value={`${expenseRatio}%`}
+                            prefix=""
+                            icon={ChartBarIcon}
+                            color="bg-amber-100 text-amber-600"
+                            hint="Total expenses as a share of total income (100% means you’ve spent every shilling earned in aggregate)."
+                        />
+                        <StatCard
+                            label="Cash Runway"
+                            value={`${cashRunwayMonths}`}
+                            prefix=""
+                            icon={ClockIcon}
+                            color="bg-purple-100 text-purple-600"
+                            subtitle="months"
+                            hint="Balance ÷ avg monthly expense from this tab. Illustrative only—real spending varies."
+                        />
                     </div>
 
                     {/* Cash balance chart with line */}
@@ -593,7 +716,10 @@ export default function Analytics({
                                     return (
                                         <div key={i} className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
                                             <div className="flex items-center justify-between mb-3">
-                                                <h4 className="font-semibold text-gray-900 text-sm">{b.category}</h4>
+                                                <div>
+                                                    <h4 className="font-semibold text-gray-900 text-sm">{b.category}</h4>
+                                                    {b.period_label && <p className="text-[10px] text-gray-400 mt-0.5">{b.period_label}</p>}
+                                                </div>
                                                 <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${
                                                     isOver ? 'bg-red-100 text-red-700' : isWarning ? 'bg-amber-100 text-amber-700' : 'bg-emerald-100 text-emerald-700'
                                                 }`}>

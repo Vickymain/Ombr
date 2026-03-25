@@ -23,7 +23,7 @@ import {
 } from '@heroicons/react/24/outline';
 import { useForm, Link, router } from '@inertiajs/react';
 import { PROVIDER_CATEGORIES, CURRENCIES, getProviderCardConfig, getProviderTheme } from '../data/providers';
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
+import { ComposedChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend } from 'recharts';
 import { parseTransactionLabel, getActionStyle } from '../utils/transactionLabels';
 
 function fieldBorderClass(error, value) {
@@ -269,21 +269,24 @@ export default function Accounts({
                 </div>
             </div>
 
-            {/* Simple income vs expenses chart */}
+            {/* Income vs expenses: dual line (not bars) */}
             {monthlyData.length > 0 && (
-                <div className="mb-8">
-                    <ResponsiveContainer width="100%" height={100}>
-                        <BarChart data={monthlyData} barGap={1} barSize={12}>
+                <div className="mb-8 bg-white rounded-2xl border border-gray-100 shadow-sm p-4 sm:p-5">
+                    <h3 className="text-sm font-semibold text-gray-900 mb-1">Income &amp; expenses by month</h3>
+                    <p className="text-xs text-gray-500 mb-4">Last six months across all accounts (line trend)</p>
+                    <ResponsiveContainer width="100%" height={240}>
+                        <ComposedChart data={monthlyData} margin={{ top: 12, right: 12, left: 0, bottom: 4 }}>
                             <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
-                            <XAxis dataKey="month" tick={{ fontSize: 10 }} axisLine={false} tickLine={false} />
-                            <YAxis hide />
+                            <XAxis dataKey="month" tick={{ fontSize: 11 }} axisLine={false} tickLine={false} />
+                            <YAxis tick={{ fontSize: 10 }} axisLine={false} tickLine={false} width={52} tickFormatter={(v) => (v >= 1000 ? `${(v / 1000).toFixed(0)}k` : `${v}`)} />
                             <Tooltip
                                 contentStyle={{ borderRadius: '12px', border: '1px solid #e5e7eb', fontSize: '12px' }}
-                                formatter={(val) => [`KSh ${Number(val).toLocaleString()}`, undefined]}
+                                formatter={(val, name) => [`KSh ${Number(val).toLocaleString()}`, name]}
                             />
-                            <Bar dataKey="income" fill="#10B981" radius={[3, 3, 0, 0]} name="Income" />
-                            <Bar dataKey="expenses" fill="#EF4444" radius={[3, 3, 0, 0]} name="Expenses" />
-                        </BarChart>
+                            <Legend wrapperStyle={{ fontSize: 12 }} />
+                            <Line type="monotone" dataKey="income" name="Income" stroke="#10B981" strokeWidth={3} dot={{ r: 4, strokeWidth: 2, fill: '#fff' }} activeDot={{ r: 7 }} connectNulls isAnimationActive={false} />
+                            <Line type="monotone" dataKey="expenses" name="Expenses" stroke="#EF4444" strokeWidth={3} dot={{ r: 4, strokeWidth: 2, fill: '#fff' }} activeDot={{ r: 7 }} connectNulls isAnimationActive={false} />
+                        </ComposedChart>
                     </ResponsiveContainer>
                 </div>
             )}

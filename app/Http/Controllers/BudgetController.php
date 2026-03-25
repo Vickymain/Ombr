@@ -4,12 +4,20 @@ namespace App\Http\Controllers;
 
 use App\Models\Budget;
 use App\Models\Category;
+use App\Models\UserCategoryKeyword;
+use App\Services\BudgetSpendingService;
+use App\Support\CategoryNormalizer;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 use Inertia\Inertia;
-use Carbon\Carbon;
 
 class BudgetController extends Controller
 {
+    public function __construct(
+        protected BudgetSpendingService $budgetSpending,
+    ) {
+    }
+
     /**
      * Display a listing of the user's budgets with progress.
      */
@@ -24,18 +32,8 @@ class BudgetController extends Controller
         $categories = Category::orderBy('sort_order')->get();
 
         $budgetsWithStats = $budgets->map(function (Budget $budget) use ($user) {
-            $startDate = Carbon::parse($budget->start_date)->startOfDay();
-            $endDate = $budget->end_date
-                ? Carbon::parse($budget->end_date)->endOfDay()
-                : Carbon::now()->endOfDay();
+            $spent = $this->budgetSpending->sumSpent($user->transactions(), $budget);
 
-            $spent = $user->transactions()
-                ->where('type', 'expense')
-                ->where('category', $budget->category)
-                ->whereBetween('transaction_date', [$startDate, $endDate])
-                ->sum('amount') ?? 0;
-
-            $spent = (float) $spent;
             $amount = (float) $budget->amount;
             $remaining = max(0, $amount - $spent);
             $progress = $amount > 0 ? min(100, round(($spent / $amount) * 100, 1)) : 0;
@@ -53,8 +51,32 @@ class BudgetController extends Controller
                 'spent' => $spent,
                 'remaining' => $remaining,
                 'progress' => $progress,
+                'spent_period_label' => $this->budgetSpending->periodLabel($budget),
             ];
         });
+
+        $keyToCategoryLabel = [];
+        foreach ($categories as $c) {
+            if (! in_array($c->type, ['expense', 'both'], true)) {
+                continue;
+            }
+            $keyToCategoryLabel[CategoryNormalizer::canonical($c->name)] = $c->icon
+                ? trim($c->icon.' '.$c->name)
+                : $c->name;
+        }
+
+        $categoryKeywords = $user->userCategoryKeywords()
+            ->orderBy('category_key')
+            ->orderBy('keyword')
+            ->get()
+            ->map(static function (UserCategoryKeyword $k) use ($keyToCategoryLabel) {
+                return [
+                    'id' => $k->id,
+                    'category_key' => $k->category_key,
+                    'keyword' => $k->keyword,
+                    'category_label' => $keyToCategoryLabel[$k->category_key] ?? $k->category_key,
+                ];
+            });
 
         $totalBalance = $user->accounts->sum('balance');
 
@@ -62,7 +84,47 @@ class BudgetController extends Controller
             'budgets' => $budgetsWithStats,
             'categories' => $categories,
             'totalBalance' => (float) $totalBalance,
+            'categoryKeywords' => $categoryKeywords,
         ]);
+    }
+
+    /**
+     * Store a personal description substring so imported/uncategorised rows can count toward a budget category.
+     */
+    public function storeCategoryKeyword(Request $request)
+    {
+        $user = $request->user();
+        $validNames = Category::query()
+            ->where(function ($q) use ($user) {
+                $q->whereNull('user_id')
+                    ->orWhere('user_id', $user->id);
+            })
+            ->whereIn('type', ['expense', 'both'])
+            ->pluck('name')
+            ->all();
+
+        $validated = $request->validate([
+            'category' => ['required', 'string', Rule::in($validNames)],
+            'keyword' => ['required', 'string', 'min:2', 'max:120'],
+        ]);
+
+        UserCategoryKeyword::firstOrCreate([
+            'user_id' => $user->id,
+            'category_key' => CategoryNormalizer::canonical($validated['category']),
+            'keyword' => mb_strtolower(trim($validated['keyword'])),
+        ]);
+
+        return redirect()->route('budgets.index');
+    }
+
+    public function destroyCategoryKeyword(Request $request, int $id)
+    {
+        $row = UserCategoryKeyword::query()
+            ->where('user_id', $request->user()->id)
+            ->findOrFail($id);
+        $row->delete();
+
+        return redirect()->route('budgets.index');
     }
 
     /**

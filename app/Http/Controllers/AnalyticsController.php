@@ -3,14 +3,24 @@
 namespace App\Http\Controllers;
 
 use App\Models\Account;
+use App\Models\Category;
 use App\Models\Transaction;
-use App\Models\Budget;
-use Illuminate\Http\Request;
-use Inertia\Inertia;
+use App\Services\AnalyticsExpenseCategoryService;
+use App\Services\BudgetSpendingService;
+use App\Support\ChartCategoryLabel;
 use Carbon\Carbon;
+use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
+use Inertia\Inertia;
 
 class AnalyticsController extends Controller
 {
+    public function __construct(
+        protected BudgetSpendingService $budgetSpending,
+        protected AnalyticsExpenseCategoryService $analyticsExpenseCategory,
+    ) {
+    }
+
     public function index(Request $request)
     {
         $user = $request->user();
@@ -97,37 +107,33 @@ class AnalyticsController extends Controller
             ];
         }
 
-        // --- Category breakdowns ---
-        // Expense by category (all time within scope)
-        $expenseByCategory = $txQuery->clone()
-            ->where('type', 'expense')
-            ->selectRaw('category, SUM(amount) as total')
-            ->groupBy('category')
-            ->orderByDesc('total')
-            ->get()
-            ->map(fn($item) => ['name' => $item->category ?: 'Uncategorised', 'value' => (float) $item->total])
-            ->toArray();
+        // --- Category breakdowns (expenses mapped to your category list; imported → keywords) ---
+        $expenseCategories = Category::query()
+            ->where(function ($q) use ($user) {
+                $q->whereNull('user_id')
+                    ->orWhere('user_id', $user->id);
+            })
+            ->whereIn('type', ['expense', 'both'])
+            ->orderBy('sort_order')
+            ->get();
 
-        // Income by category
-        $incomeByCategory = $txQuery->clone()
-            ->where('type', 'income')
-            ->selectRaw('category, SUM(amount) as total')
-            ->groupBy('category')
-            ->orderByDesc('total')
-            ->get()
-            ->map(fn($item) => ['name' => $item->category ?: 'Uncategorised', 'value' => (float) $item->total])
-            ->toArray();
+        [
+            'expenseByCategory' => $expenseByCategory,
+            'thisMonthCategoryExpenses' => $thisMonthCategoryExpenses,
+            'monthlyCategoryData' => $monthlyCategoryData,
+            'topExpenseCategories' => $topExpenseCategories,
+        ] = $this->buildResolvedExpenseBreakdowns(
+            $txQuery,
+            $user,
+            $expenseCategories,
+            $now,
+            $monthsBack,
+            $thisMonthStart,
+            $thisMonthEnd,
+        );
 
-        // This month expense by category
-        $thisMonthCategoryExpenses = $txQuery->clone()
-            ->where('type', 'expense')
-            ->whereBetween('transaction_date', [$thisMonthStart, $thisMonthEnd])
-            ->selectRaw('category, SUM(amount) as total')
-            ->groupBy('category')
-            ->orderByDesc('total')
-            ->get()
-            ->map(fn($item) => ['name' => $item->category ?: 'Uncategorised', 'value' => (float) $item->total])
-            ->toArray();
+        // Income by category (no separate “Uncategorised” slice)
+        $incomeByCategory = $this->mergedIncomeByCategoryLabels($txQuery);
 
         // --- Income/Expense by account (stacked) ---
         $incomeByAccount = [];
@@ -146,30 +152,6 @@ class AnalyticsController extends Controller
                 $incomeByAccount[]  = ['name' => $label, 'value' => $acctIncome];
                 $expenseByAccount[] = ['name' => $label, 'value' => $acctExpense];
             }
-        }
-
-        // Monthly income/expense stacked by top categories
-        $topExpenseCategories = array_slice(array_column($expenseByCategory, 'name'), 0, 6);
-        $monthlyCategoryData = [];
-        for ($i = $monthsBack - 1; $i >= 0; $i--) {
-            $month = $now->copy()->subMonths($i);
-            $start = $month->copy()->startOfMonth();
-            $end   = $month->copy()->endOfMonth();
-            $row = ['month' => $month->format('M Y'), 'monthShort' => $month->format('M')];
-            foreach ($topExpenseCategories as $cat) {
-                $row[$cat] = (float) ($txQuery->clone()
-                    ->where('type', 'expense')
-                    ->where('category', $cat)
-                    ->whereBetween('transaction_date', [$start, $end])
-                    ->sum('amount') ?? 0);
-            }
-            $otherTotal = (float) ($txQuery->clone()
-                ->where('type', 'expense')
-                ->whereNotIn('category', $topExpenseCategories)
-                ->whereBetween('transaction_date', [$start, $end])
-                ->sum('amount') ?? 0);
-            $row['Others'] = $otherTotal;
-            $monthlyCategoryData[] = $row;
         }
 
         // --- Account distribution ---
@@ -217,18 +199,17 @@ class AnalyticsController extends Controller
 
         // --- Budget vs actual ---
         $budgets = $user->budgets ?? collect();
-        $budgetVsActual = $budgets->map(function ($budget) use ($txQuery, $now) {
-            $spent = (float) ($txQuery->clone()
-                ->where('type', 'expense')
-                ->where('category', $budget->category)
-                ->whereBetween('transaction_date', [$budget->start_date, $budget->end_date ?? $now])
-                ->sum('amount') ?? 0);
+        $budgetVsActual = $budgets->map(function ($budget) use ($txQuery) {
+            $spent = $this->budgetSpending->sumSpent($txQuery, $budget);
+            $budgeted = (float) $budget->amount;
+
             return [
                 'category'  => $budget->category,
-                'budgeted'  => (float) $budget->amount,
+                'budgeted'  => $budgeted,
                 'spent'     => $spent,
-                'remaining' => max(0, (float) $budget->amount - $spent),
-                'progress'  => (float) $budget->amount > 0 ? round(($spent / (float) $budget->amount) * 100, 1) : 0,
+                'remaining' => max(0, $budgeted - $spent),
+                'progress'  => $budgeted > 0 ? round(($spent / $budgeted) * 100, 1) : 0,
+                'period_label' => $this->budgetSpending->periodLabel($budget),
             ];
         })->toArray();
 
@@ -269,5 +250,137 @@ class AnalyticsController extends Controller
             'plStatement'          => $plStatement,
             'budgetVsActual'       => $budgetVsActual,
         ]);
+    }
+
+    /**
+     * Single pass over expenses: totals by resolved category, this month slice, and stacked-by-month chart data.
+     *
+     * @return array{
+     *     expenseByCategory: list<array{name: string, value: float}>,
+     *     thisMonthCategoryExpenses: list<array{name: string, value: float}>,
+     *     monthlyCategoryData: list<array<string, mixed>>,
+     *     topExpenseCategories: list<string>
+     * }
+     */
+    private function buildResolvedExpenseBreakdowns(
+        $txQuery,
+        $user,
+        Collection $expenseCategories,
+        Carbon $now,
+        int $monthsBack,
+        Carbon $thisMonthStart,
+        Carbon $thisMonthEnd,
+    ): array {
+        $service = $this->analyticsExpenseCategory;
+        $allTime = [];
+        $thisMonthBuckets = [];
+        $monthly = [];
+
+        $rangeStart = $now->copy()->subMonths($monthsBack - 1)->startOfMonth()->startOfDay();
+        $rangeEnd = $now->copy()->endOfMonth()->endOfDay();
+
+        $txQuery->clone()
+            ->where('type', 'expense')
+            ->orderBy('id')
+            ->select(['id', 'category', 'description', 'amount', 'transaction_date'])
+            ->chunkById(500, function ($chunk) use (
+                $service,
+                $user,
+                $expenseCategories,
+                &$allTime,
+                &$thisMonthBuckets,
+                &$monthly,
+                $thisMonthStart,
+                $thisMonthEnd,
+                $rangeStart,
+                $rangeEnd,
+            ) {
+                foreach ($chunk as $tx) {
+                    $label = ChartCategoryLabel::foldGenericSlices(
+                        $service->displayLabelForExpense($tx, $user, $expenseCategories)
+                    );
+                    $amt = (float) $tx->amount;
+                    $allTime[$label] = ($allTime[$label] ?? 0) + $amt;
+
+                    $d = Carbon::parse($tx->transaction_date)->startOfDay();
+                    $monthLo = $thisMonthStart->copy()->startOfDay();
+                    $monthHi = $thisMonthEnd->copy()->endOfDay();
+                    if ($d->greaterThanOrEqualTo($monthLo) && $d->lessThanOrEqualTo($monthHi)) {
+                        $thisMonthBuckets[$label] = ($thisMonthBuckets[$label] ?? 0) + $amt;
+                    }
+                    if ($d->greaterThanOrEqualTo($rangeStart) && $d->lessThanOrEqualTo($rangeEnd)) {
+                        $mk = $d->format('M Y');
+                        if (! isset($monthly[$mk])) {
+                            $monthly[$mk] = [];
+                        }
+                        $monthly[$mk][$label] = ($monthly[$mk][$label] ?? 0) + $amt;
+                    }
+                }
+            });
+
+        $expenseByCategory = collect($allTime)
+            ->map(fn ($v, $k) => ['name' => (string) $k, 'value' => (float) $v])
+            ->sortByDesc('value')
+            ->values()
+            ->all();
+
+        $thisMonthCategoryExpenses = collect($thisMonthBuckets)
+            ->map(fn ($v, $k) => ['name' => (string) $k, 'value' => (float) $v])
+            ->sortByDesc('value')
+            ->values()
+            ->all();
+
+        $topExpenseCategories = array_slice(array_column($expenseByCategory, 'name'), 0, 6);
+
+        $monthlyCategoryData = [];
+        for ($i = $monthsBack - 1; $i >= 0; $i--) {
+            $month = $now->copy()->subMonths($i);
+            $mk = $month->format('M Y');
+            $row = ['month' => $mk, 'monthShort' => $month->format('M')];
+            $labelTotals = $monthly[$mk] ?? [];
+            foreach ($topExpenseCategories as $cat) {
+                $row[$cat] = (float) ($labelTotals[$cat] ?? 0);
+            }
+            $otherTotal = 0.0;
+            foreach ($labelTotals as $lbl => $val) {
+                if (! in_array($lbl, $topExpenseCategories, true)) {
+                    $otherTotal += (float) $val;
+                }
+            }
+            $row['Others'] = $otherTotal;
+            $monthlyCategoryData[] = $row;
+        }
+
+        return [
+            'expenseByCategory' => $expenseByCategory,
+            'thisMonthCategoryExpenses' => $thisMonthCategoryExpenses,
+            'monthlyCategoryData' => $monthlyCategoryData,
+            'topExpenseCategories' => $topExpenseCategories,
+        ];
+    }
+
+    /**
+     * @return list<array{name: string, value: float}>
+     */
+    private function mergedIncomeByCategoryLabels($txQuery): array
+    {
+        $rows = $txQuery->clone()
+            ->where('type', 'income')
+            ->selectRaw('category, SUM(amount) as total')
+            ->groupBy('category')
+            ->orderByDesc('total')
+            ->get();
+
+        $merged = [];
+        foreach ($rows as $item) {
+            $name = ChartCategoryLabel::foldGenericSlices((string) ($item->category ?? ''));
+            $merged[$name] = ($merged[$name] ?? 0) + (float) $item->total;
+        }
+
+        return collect($merged)
+            ->map(fn ($v, $k) => ['name' => (string) $k, 'value' => (float) $v])
+            ->sortByDesc('value')
+            ->values()
+            ->all();
     }
 }

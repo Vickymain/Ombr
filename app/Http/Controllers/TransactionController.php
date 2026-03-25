@@ -31,6 +31,7 @@ class TransactionController extends Controller
             'transactions' => $transactions,
             'accounts' => $accounts,
             'categories' => $categories,
+            'initialSearch' => $request->string('search')->trim()->value(),
         ]);
     }
 

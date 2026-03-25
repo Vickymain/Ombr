@@ -84,4 +84,12 @@ class User extends Authenticatable
     {
         return $this->hasMany(Notification::class)->orderBy('created_at', 'desc');
     }
+
+    /**
+     * Personal description substrings that map imported/uncategorised rows into a budget category.
+     */
+    public function userCategoryKeywords()
+    {
+        return $this->hasMany(UserCategoryKeyword::class);
+    }
 }

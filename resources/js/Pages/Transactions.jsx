@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import AppLayout from '../Layouts/AppLayout';
 import { PlusIcon, FunnelIcon, ArrowUpIcon, ArrowDownIcon, MagnifyingGlassIcon, ArrowsRightLeftIcon, CalendarDaysIcon, XMarkIcon } from '@heroicons/react/24/outline';
 import { useForm, router } from '@inertiajs/react';
@@ -68,7 +68,7 @@ function ActionIcon({ action }) {
     );
 }
 
-export default function Transactions({ transactions = [], accounts = [], categories = [] }) {
+export default function Transactions({ transactions = [], accounts = [], categories = [], initialSearch = '' }) {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [isImportModalOpen, setIsImportModalOpen] = useState(false);
     const [filterType, setFilterType] = useState('all');
@@ -76,7 +76,11 @@ export default function Transactions({ transactions = [], accounts = [], categor
     const [filterDatePreset, setFilterDatePreset] = useState('all');
     const [customStart, setCustomStart] = useState('');
     const [customEnd, setCustomEnd] = useState('');
-    const [searchQuery, setSearchQuery] = useState('');
+    const [searchQuery, setSearchQuery] = useState(initialSearch || '');
+
+    useEffect(() => {
+        setSearchQuery(initialSearch || '');
+    }, [initialSearch]);
 
     const { data, setData, post, processing, errors, reset } = useForm({
         account_id: accounts[0]?.id || '', type: 'expense', amount: '', category: '', description: '',

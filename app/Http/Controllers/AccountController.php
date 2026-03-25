@@ -3,9 +3,13 @@
 namespace App\Http\Controllers;
 
 use App\Models\Account;
+use App\Models\Category;
 use App\Models\Notification;
 use App\Models\Transaction;
+use App\Services\AnalyticsExpenseCategoryService;
+use App\Services\BudgetSpendingService;
 use App\Services\StatementImportService;
+use App\Support\ChartCategoryLabel;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -14,6 +18,8 @@ class AccountController extends Controller
 {
     public function __construct(
         protected StatementImportService $statementImportService,
+        protected BudgetSpendingService $budgetSpending,
+        protected AnalyticsExpenseCategoryService $analyticsExpenseCategory,
     ) {
     }
 
@@ -118,23 +124,38 @@ class AccountController extends Controller
             ];
         }
 
-        $categoryBreakdown = $transactions
-            ->where('type', 'expense')
-            ->groupBy('category')
-            ->map(fn ($group, $cat) => ['name' => $cat, 'value' => round($group->sum('amount'), 2)])
+        $expenseCategories = Category::query()
+            ->where(function ($q) use ($user) {
+                $q->whereNull('user_id')
+                    ->orWhere('user_id', $user->id);
+            })
+            ->whereIn('type', ['expense', 'both'])
+            ->orderBy('sort_order')
+            ->get();
+
+        $breakdownBuckets = [];
+        foreach ($transactions->where('type', 'expense') as $t) {
+            $label = ChartCategoryLabel::foldGenericSlices(
+                $this->analyticsExpenseCategory->displayLabelForExpense($t, $user, $expenseCategories)
+            );
+            $breakdownBuckets[$label] = ($breakdownBuckets[$label] ?? 0) + (float) $t->amount;
+        }
+        $categoryBreakdown = collect($breakdownBuckets)
+            ->map(fn ($sum, $name) => ['name' => $name, 'value' => round($sum, 2)])
             ->sortByDesc('value')
             ->values()
             ->take(8);
 
-        $budgets = $user->budgets()->where('is_active', true)->get()->map(function ($budget) use ($transactions, $now) {
-            $spent = $transactions
-                ->where('type', 'expense')
-                ->where('category', $budget->category)
-                ->where('transaction_date', '>=', $now->copy()->startOfMonth())
-                ->sum('amount');
+        $budgets = $user->budgets()->where('is_active', true)->get()->map(function ($budget) use ($user, $account) {
+            $spent = $this->budgetSpending->sumSpent(
+                $user->transactions()->where('account_id', $account->id),
+                $budget
+            );
             $budget->spent = round($spent, 2);
-            $budget->remaining = round($budget->amount - $spent, 2);
-            $budget->progress = $budget->amount > 0 ? round($spent / $budget->amount * 100, 1) : 0;
+            $budget->remaining = round((float) $budget->amount - $spent, 2);
+            $budget->progress = $budget->amount > 0 ? round($spent / (float) $budget->amount * 100, 1) : 0;
+            $budget->spent_period_label = $this->budgetSpending->periodLabel($budget);
+
             return $budget;
         });
 

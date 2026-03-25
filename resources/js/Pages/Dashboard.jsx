@@ -79,7 +79,7 @@ const processingSteps = [
     { key: 'analysing', icon: CpuChipIcon, label: 'Processing data...' },
 ];
 
-export default function Dashboard({ accounts = [], latestTransactions = [], recentTransactions = [], searchSuggestions = [], monthlyData = [], categoryData = [] }) {
+export default function Dashboard({ accounts = [], latestTransactions = [], recentTransactions = [], monthlyData = [], categoryData = [] }) {
     const page = usePage();
     const user = page.props?.auth?.user;
     const scrollContainerRef = useRef(null);

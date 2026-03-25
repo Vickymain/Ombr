@@ -18,18 +18,17 @@ import {
 import { Link, useForm, router } from '@inertiajs/react';
 import { parseTransactionLabel, getActionStyle } from '../utils/transactionLabels';
 import {
-    BarChart,
-    Bar,
     PieChart,
     Pie,
     Cell,
-    LineChart,
+    ComposedChart,
     Line,
     XAxis,
     YAxis,
     CartesianGrid,
     Tooltip,
     ResponsiveContainer,
+    Legend,
 } from 'recharts';
 import FileUploadZone from '../Components/FileUploadZone';
 import { createPortal } from 'react-dom';
@@ -180,21 +179,22 @@ export default function AccountShow({
                         </div>
                     </div>
 
-                    {/* Income vs Expense chart */}
+                    {/* Income vs expense lines */}
                     <div className="bg-white rounded-2xl p-6 border border-gray-100 shadow-sm">
-                        <h3 className="text-base font-semibold text-gray-900 mb-4">Monthly Overview</h3>
+                        <h3 className="text-base font-semibold text-gray-900 mb-4">Monthly overview</h3>
                         <ResponsiveContainer width="100%" height={250}>
-                            <BarChart data={monthlyData} barGap={4}>
+                            <ComposedChart data={monthlyData} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
                                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
                                 <XAxis dataKey="month" tick={{ fontSize: 12 }} axisLine={false} tickLine={false} />
                                 <YAxis tick={{ fontSize: 12 }} axisLine={false} tickLine={false} />
                                 <Tooltip
                                     contentStyle={{ borderRadius: '12px', border: '1px solid #e5e7eb', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)' }}
-                                    formatter={(val) => [`${cs} ${Number(val).toLocaleString()}`, undefined]}
+                                    formatter={(val, name) => [`${cs} ${Number(val).toLocaleString()}`, name]}
                                 />
-                                <Bar dataKey="income" fill="#10B981" radius={[6, 6, 0, 0]} name="Income" />
-                                <Bar dataKey="expenses" fill="#EF4444" radius={[6, 6, 0, 0]} name="Expenses" />
-                            </BarChart>
+                                <Legend wrapperStyle={{ fontSize: 12 }} />
+                                <Line type="monotone" dataKey="income" name="Income" stroke="#10B981" strokeWidth={3} dot={{ r: 4, strokeWidth: 2, fill: '#fff' }} activeDot={{ r: 6 }} connectNulls isAnimationActive={false} />
+                                <Line type="monotone" dataKey="expenses" name="Expenses" stroke="#EF4444" strokeWidth={3} dot={{ r: 4, strokeWidth: 2, fill: '#fff' }} activeDot={{ r: 6 }} connectNulls isAnimationActive={false} />
+                            </ComposedChart>
                         </ResponsiveContainer>
                     </div>
 
@@ -359,6 +359,9 @@ export default function AccountShow({
                                                 {cs} {Number(budget.spent).toLocaleString()} / {cs} {Number(budget.amount).toLocaleString()}
                                             </span>
                                         </div>
+                                        {budget.spent_period_label && (
+                                            <p className="text-[10px] text-gray-400 mb-1">{budget.spent_period_label}</p>
+                                        )}
                                         <div className="w-full bg-gray-100 rounded-full h-2 overflow-hidden">
                                             <div
                                                 className={`h-2 rounded-full transition-all ${budget.progress >= 100 ? 'bg-red-500' : budget.progress >= 80 ? 'bg-amber-500' : 'bg-emerald-500'}`}
