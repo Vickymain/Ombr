@@ -74,6 +74,8 @@ export default function AccountShow({
     transactions = [],
     thisMonthIncome = 0,
     thisMonthExpenses = 0,
+    totalIncome = 0,
+    totalExpenses = 0,
     monthlyData = [],
     categoryBreakdown = [],
     budgets = [],
@@ -161,9 +163,9 @@ export default function AccountShow({
                                 </div>
                             </div>
                             <p className="text-2xl font-bold text-emerald-600">
-                                +{cs} {thisMonthIncome.toLocaleString('en-US', { minimumFractionDigits: 0 })}
+                                +{cs} {Number(totalIncome || 0).toLocaleString('en-US', { minimumFractionDigits: 0 })}
                             </p>
-                            <p className="text-xs text-gray-400 mt-1">This month</p>
+                            <p className="text-xs text-gray-400 mt-1">All transactions</p>
                         </div>
                         <div className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm">
                             <div className="flex items-center justify-between mb-2">
@@ -173,9 +175,9 @@ export default function AccountShow({
                                 </div>
                             </div>
                             <p className="text-2xl font-bold text-red-600">
-                                -{cs} {thisMonthExpenses.toLocaleString('en-US', { minimumFractionDigits: 0 })}
+                                -{cs} {Number(totalExpenses || 0).toLocaleString('en-US', { minimumFractionDigits: 0 })}
                             </p>
-                            <p className="text-xs text-gray-400 mt-1">This month</p>
+                            <p className="text-xs text-gray-400 mt-1">All transactions</p>
                         </div>
                     </div>
 

@@ -15,7 +15,7 @@ import {
     ExclamationTriangleIcon,
     XMarkIcon,
 } from '@heroicons/react/24/outline';
-import { useForm, router } from '@inertiajs/react';
+import { useForm, router, Link } from '@inertiajs/react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
 const periodLabels = { weekly: 'Weekly', monthly: 'Monthly', yearly: 'Yearly' };
@@ -321,9 +321,6 @@ export default function Budgets({ budgets = [], categories = [], totalBalance = 
                     <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-8">
                         <div>
                             <h1 className="text-2xl font-bold text-gray-900">Budgets</h1>
-                            <p className="mt-1 text-sm text-gray-500">
-                                Spending is counted from expenses in the budget category within each period. Assign categories on transactions (or we infer some merchants from descriptions when the category is Imported).
-                            </p>
                         </div>
                         <button
                             onClick={() => openModal()}
@@ -391,9 +388,9 @@ export default function Budgets({ budgets = [], categories = [], totalBalance = 
                                                 {isOverBudget && <ExclamationTriangleIcon className="h-4 w-4 text-red-500" />}
                                                 {isWarning && <ExclamationTriangleIcon className="h-4 w-4 text-amber-500" />}
                                                 {!isOverBudget && !isWarning && <CheckCircleIcon className="h-4 w-4 text-emerald-500" />}
-                                                <span className="text-sm font-semibold text-gray-900">
+                                                <Link href={`/budgets/${budget.id}`} className="text-sm font-semibold text-gray-900 hover:text-[#C85D3A] transition-colors">
                                                     {catMeta?.icon ? `${catMeta.icon} ` : ''}{budget.category}
-                                                </span>
+                                                </Link>
                                                 <span className="px-2 py-0.5 text-[10px] font-semibold rounded-full bg-gray-100 text-gray-600 uppercase">
                                                     {periodLabels[budget.period] || budget.period}
                                                 </span>
@@ -429,6 +426,9 @@ export default function Budgets({ budgets = [], categories = [], totalBalance = 
                                         </div>
 
                                         <div className="flex items-center gap-2">
+                                            <Link href={`/budgets/${budget.id}`} className="px-3 py-1.5 text-xs font-medium rounded-lg bg-gray-100 text-gray-700 hover:bg-gray-200 transition-colors">
+                                                View
+                                            </Link>
                                             <button onClick={() => openModal(budget)} className="p-2 rounded-xl text-gray-400 hover:text-[#C85D3A] hover:bg-[#C85D3A]/5 transition-colors">
                                                 <PencilIcon className="h-4 w-4" />
                                             </button>

@@ -60,10 +60,11 @@ Route::middleware('auth')->group(function () {
     // Budgets
     Route::get('/budgets', [BudgetController::class, 'index'])->name('budgets.index');
     Route::post('/budgets', [BudgetController::class, 'store'])->name('budgets.store');
-    Route::put('/budgets/{id}', [BudgetController::class, 'update'])->name('budgets.update');
-    Route::delete('/budgets/{id}', [BudgetController::class, 'destroy'])->name('budgets.destroy');
     Route::post('/budgets/category-keywords', [BudgetController::class, 'storeCategoryKeyword'])->name('budgets.category-keywords.store');
     Route::delete('/budgets/category-keywords/{id}', [BudgetController::class, 'destroyCategoryKeyword'])->name('budgets.category-keywords.destroy');
+    Route::get('/budgets/{id}', [BudgetController::class, 'show'])->whereNumber('id')->name('budgets.show');
+    Route::put('/budgets/{id}', [BudgetController::class, 'update'])->whereNumber('id')->name('budgets.update');
+    Route::delete('/budgets/{id}', [BudgetController::class, 'destroy'])->whereNumber('id')->name('budgets.destroy');
     
     // Analytics
     Route::get('/analytics', [AnalyticsController::class, 'index'])->name('analytics.index');

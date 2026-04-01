@@ -79,7 +79,7 @@ const processingSteps = [
     { key: 'analysing', icon: CpuChipIcon, label: 'Processing data...' },
 ];
 
-export default function Dashboard({ accounts = [], latestTransactions = [], recentTransactions = [], monthlyData = [], categoryData = [] }) {
+export default function Dashboard({ accounts = [], latestTransactions = [], recentTransactions = [], monthlyData = [], categoryData = [], totalIncome = 0, totalExpenses = 0 }) {
     const page = usePage();
     const user = page.props?.auth?.user;
     const scrollContainerRef = useRef(null);
@@ -308,7 +308,7 @@ export default function Dashboard({ accounts = [], latestTransactions = [], rece
                                 <ArrowTrendingUpIcon className="h-4 w-4 text-emerald-500" />
                                 <span className="text-xs font-medium text-gray-500 uppercase tracking-wider">Income</span>
                             </div>
-                            <p className="text-2xl font-bold text-gray-900">KSh {thisMonthIncome.toLocaleString('en-KE', { minimumFractionDigits: 0 })}</p>
+                            <p className="text-2xl font-bold text-gray-900">KSh {Number(totalIncome || 0).toLocaleString('en-KE', { minimumFractionDigits: 0 })}</p>
                             <p className="text-xs text-gray-400 mt-0.5">
                                 vs last month <span className={`font-semibold ${incomeChange >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>{incomeChange >= 0 ? '+' : ''}{incomeChange}%</span>
                             </p>
@@ -318,15 +318,15 @@ export default function Dashboard({ accounts = [], latestTransactions = [], rece
                                 <ArrowDownIcon className="h-4 w-4 text-red-500" />
                                 <span className="text-xs font-medium text-gray-500 uppercase tracking-wider">Expenses</span>
                             </div>
-                            <p className="text-2xl font-bold text-gray-900">KSh {thisMonthExpenses.toLocaleString('en-KE', { minimumFractionDigits: 0 })}</p>
+                            <p className="text-2xl font-bold text-gray-900">KSh {Number(totalExpenses || 0).toLocaleString('en-KE', { minimumFractionDigits: 0 })}</p>
                             <p className="text-xs text-gray-400 mt-0.5">
                                 vs last month <span className={`font-semibold ${expenseChange <= 0 ? 'text-emerald-600' : 'text-red-600'}`}>{expenseChange >= 0 ? '+' : ''}{expenseChange}%</span>
                             </p>
                         </div>
                     </div>
 
-                    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-                        <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
+                    <div className="rounded-2xl overflow-hidden">
+                        <div className="px-1 py-2 mb-1 flex items-center justify-between">
                             <h3 className="text-base font-semibold text-gray-900">Last Transactions</h3>
                             <Link href="/transactions" className="text-sm font-medium text-[#C85D3A] hover:text-[#B85450]">View all</Link>
                         </div>
@@ -344,7 +344,7 @@ export default function Dashboard({ accounts = [], latestTransactions = [], rece
                                     const initial = acct?.provider ? acct.provider.charAt(0).toUpperCase() : '?';
                                     const dateStr = new Date(t.transaction_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
                                     return (
-                                        <div key={t.id} className="px-5 py-3.5 flex items-center hover:bg-gray-50/50 transition-colors border-b border-gray-50 last:border-b-0">
+                                        <div key={t.id} className="px-1 py-3.5 flex items-center hover:bg-black/[0.02] transition-colors border-b border-black/[0.06] last:border-b-0">
                                             <div className="w-2.5 h-2.5 rounded-full flex-shrink-0 mr-3" style={{ background: style.icon === 'up' ? '#10B981' : style.icon === 'transfer' ? '#3B82F6' : '#EF4444' }} />
                                             <div className="flex-1 min-w-0 mr-4">
                                                 <p className="text-sm font-semibold text-gray-900 truncate">{displayLabel}</p>
@@ -376,14 +376,14 @@ export default function Dashboard({ accounts = [], latestTransactions = [], rece
                                             <ArrowUpIcon className="h-4 w-4 text-emerald-500" />
                                             <span className="text-sm text-gray-600">Income</span>
                                         </div>
-                                        <span className="text-sm font-semibold text-gray-900">KSh {thisMonthIncome.toLocaleString('en-KE')}</span>
+                                        <span className="text-sm font-semibold text-gray-900">KSh {Number(totalIncome || 0).toLocaleString('en-KE')}</span>
                                     </div>
                                     <div className="flex items-center justify-between">
                                         <div className="flex items-center gap-2">
                                             <ArrowDownIcon className="h-4 w-4 text-red-500" />
                                             <span className="text-sm text-gray-600">Expenses</span>
                                         </div>
-                                        <span className="text-sm font-semibold text-gray-900">KSh {thisMonthExpenses.toLocaleString('en-KE')}</span>
+                                        <span className="text-sm font-semibold text-gray-900">KSh {Number(totalExpenses || 0).toLocaleString('en-KE')}</span>
                                     </div>
                                     <div className="border-t border-gray-100 pt-3 flex items-center justify-between">
                                         <span className="text-sm text-gray-600">Total balance</span>

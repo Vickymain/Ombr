@@ -106,6 +106,14 @@ class AccountController extends Controller
             ->where('transaction_date', '>=', $now->copy()->startOfMonth())
             ->sum('amount');
 
+        $totalIncome = (float) $transactions
+            ->where('type', 'income')
+            ->sum('amount');
+
+        $totalExpenses = (float) $transactions
+            ->where('type', 'expense')
+            ->sum('amount');
+
         $monthlyData = [];
         for ($i = 5; $i >= 0; $i--) {
             $month = $now->copy()->subMonths($i);
@@ -166,6 +174,8 @@ class AccountController extends Controller
             'transactions' => $transactions,
             'thisMonthIncome' => round($thisMonthIncome, 2),
             'thisMonthExpenses' => round($thisMonthExpenses, 2),
+            'totalIncome' => round($totalIncome, 2),
+            'totalExpenses' => round($totalExpenses, 2),
             'monthlyData' => $monthlyData,
             'categoryBreakdown' => $categoryBreakdown,
             'budgets' => $budgets,
@@ -234,6 +244,8 @@ class AccountController extends Controller
                 $item['rows'],
                 $request->user(),
                 $account,
+                'Imported',
+                false,
             );
         }
 

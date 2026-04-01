@@ -185,7 +185,18 @@ export default function Analytics({
 
     const selectedAccount = accounts.find((a) => a.id.toString() === filterAccountId.toString());
 
-    const stackedKeys = useMemo(() => [...topExpenseCategories, 'Others'], [topExpenseCategories]);
+    const stackedKeys = useMemo(
+        () => (topExpenseCategories || []).filter((name) => !['other', 'others'].includes(String(name).toLowerCase())),
+        [topExpenseCategories]
+    );
+    const expenseBreakdownData = useMemo(
+        () => (expenseByCategory || []).filter((item) => (item?.name || '').toLowerCase() !== 'other'),
+        [expenseByCategory]
+    );
+    const thisMonthBreakdownData = useMemo(
+        () => (thisMonthCategoryExpenses || []).filter((item) => (item?.name || '').toLowerCase() !== 'other'),
+        [thisMonthCategoryExpenses]
+    );
 
     return (
         <AppLayout title="Insights" totalBalance={totalBalance}>
@@ -323,7 +334,7 @@ export default function Analytics({
                             title="Expense breakdown"
                             description="Groups spending under your expense categories. Imported or uncategorised rows are split using the same merchant keywords as budgets (plus any you set under Budgets → Your merchant keywords)."
                         >
-                            <PieWithLegend data={expenseByCategory} />
+                            <PieWithLegend data={expenseBreakdownData} />
                         </ChartCard>
                     </div>
 
@@ -526,7 +537,7 @@ export default function Analytics({
                             title="Expense breakdown (this month)"
                             description="This month’s spending by your categories (imported rows mapped with merchant keywords)."
                         >
-                            <PieWithLegend data={thisMonthCategoryExpenses} height={260} />
+                            <PieWithLegend data={thisMonthBreakdownData} height={260} />
                         </ChartCard>
                         <ChartCard title="Income by Category (All Time)">
                             <PieWithLegend data={incomeByCategory} colors={['#1A6B5C', '#3B82F6', '#8B5CF6', '#06B6D4', '#10B981', '#84CC16']} height={260} />

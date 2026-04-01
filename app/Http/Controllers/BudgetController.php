@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Budget;
 use App\Models\Category;
+use App\Models\Transaction;
 use App\Models\UserCategoryKeyword;
 use App\Services\BudgetSpendingService;
 use App\Support\CategoryNormalizer;
@@ -89,6 +90,54 @@ class BudgetController extends Controller
     }
 
     /**
+     * Display one budget with period stats and matching transactions.
+     */
+    public function show(Request $request, int $id)
+    {
+        $user = $request->user();
+        $budget = $user->budgets()->findOrFail($id);
+
+        [$start, $end] = $this->budgetSpending->periodWindow($budget);
+
+        $txQuery = Transaction::query()
+            ->where('user_id', $user->id)
+            ->with('account:id,provider,account_name,currency')
+            ->where('type', 'expense')
+            ->whereBetween('transaction_date', [$start->toDateString(), $end->toDateString()]);
+
+        $this->budgetSpending->applyBudgetCategoryScope($txQuery, $budget);
+
+        $transactions = $txQuery
+            ->orderByDesc('transaction_date')
+            ->orderByDesc('created_at')
+            ->get();
+
+        $spent = (float) ($transactions->sum('amount') ?? 0);
+        $budgetAmount = (float) $budget->amount;
+        $remaining = max(0, $budgetAmount - $spent);
+        $progress = $budgetAmount > 0 ? min(100, round(($spent / $budgetAmount) * 100, 1)) : 0;
+        $overAmount = max(0, $spent - $budgetAmount);
+
+        return Inertia::render('BudgetShow', [
+            'budget' => [
+                'id' => $budget->id,
+                'category' => $budget->category,
+                'amount' => $budgetAmount,
+                'period' => $budget->period,
+                'start_date' => optional($budget->start_date)->toDateString(),
+                'end_date' => optional($budget->end_date)->toDateString(),
+                'spent' => $spent,
+                'remaining' => $remaining,
+                'progress' => $progress,
+                'over_amount' => $overAmount,
+                'period_label' => $this->budgetSpending->periodLabel($budget),
+            ],
+            'transactions' => $transactions,
+            'totalBalance' => (float) $user->accounts->sum('balance'),
+        ]);
+    }
+
+    /**
      * Store a personal description substring so imported/uncategorised rows can count toward a budget category.
      */
     public function storeCategoryKeyword(Request $request)
@@ -108,11 +157,22 @@ class BudgetController extends Controller
             'keyword' => ['required', 'string', 'min:2', 'max:120'],
         ]);
 
+        $keyword = mb_strtolower(trim($validated['keyword']));
+        $targetCategory = $validated['category'];
+
         UserCategoryKeyword::firstOrCreate([
             'user_id' => $user->id,
-            'category_key' => CategoryNormalizer::canonical($validated['category']),
-            'keyword' => mb_strtolower(trim($validated['keyword'])),
+            'category_key' => CategoryNormalizer::canonical($targetCategory),
+            'keyword' => $keyword,
         ]);
+
+        // Retroactively recategorize matching expense rows so budgeting and transaction views align immediately.
+        Transaction::query()
+            ->where('user_id', $user->id)
+            ->where('type', 'expense')
+            ->whereNotNull('description')
+            ->whereRaw('LOWER(description) LIKE ?', ['%' . $keyword . '%'])
+            ->update(['category' => $targetCategory]);
 
         return redirect()->route('budgets.index');
     }

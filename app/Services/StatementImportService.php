@@ -50,7 +50,13 @@ class StatementImportService
      * @param array<int, array<string, mixed>> $rows
      * @return int Number of transactions created
      */
-    public function importFromRows(array $rows, User $user, Account $account, string $defaultCategory = 'Imported'): int
+    public function importFromRows(
+        array $rows,
+        User $user,
+        Account $account,
+        string $defaultCategory = 'Imported',
+        bool $applyBalanceDelta = true
+    ): int
     {
         $now = now()->toDateTimeString();
         $toInsert = [];
@@ -109,7 +115,7 @@ class StatementImportService
             Transaction::insert($chunk);
         }
 
-        if ($createdCount > 0) {
+        if ($applyBalanceDelta && $createdCount > 0) {
             $account->balance = (float) $account->balance + $balanceDelta;
             $account->save();
         }

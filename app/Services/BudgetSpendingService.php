@@ -84,19 +84,16 @@ class BudgetSpendingService
             CategoryNormalizer::canonical($budget->category),
             $budget->user_id
         );
-        $importedLabels = ['Imported', 'Uncategorised', 'Uncategorized', 'Other Expense'];
-
-        $query->where(function (Builder $outer) use ($aliases, $keywords, $importedLabels) {
+        $query->where(function (Builder $outer) use ($aliases, $keywords) {
             $outer->whereIn('category', $aliases);
 
             if ($keywords !== []) {
-                $outer->orWhere(function (Builder $inner) use ($keywords, $importedLabels) {
-                    $inner->whereIn('category', $importedLabels)
-                        ->where(function (Builder $desc) use ($keywords) {
-                            foreach ($keywords as $kw) {
-                                $desc->orWhere('description', 'LIKE', '%' . $kw . '%');
-                            }
-                        });
+                $outer->orWhere(function (Builder $inner) use ($keywords) {
+                    $inner->where(function (Builder $desc) use ($keywords) {
+                        foreach ($keywords as $kw) {
+                            $desc->orWhere('description', 'LIKE', '%' . $kw . '%');
+                        }
+                    });
                 });
             }
         });

@@ -330,7 +330,14 @@ class AnalyticsController extends Controller
             ->values()
             ->all();
 
-        $topExpenseCategories = array_slice(array_column($expenseByCategory, 'name'), 0, 6);
+        $topExpenseCategories = array_slice(
+            array_values(array_filter(
+                array_column($expenseByCategory, 'name'),
+                static fn ($name) => ! in_array(mb_strtolower((string) $name), ['other', 'others'], true)
+            )),
+            0,
+            6
+        );
 
         $monthlyCategoryData = [];
         for ($i = $monthsBack - 1; $i >= 0; $i--) {
@@ -341,13 +348,6 @@ class AnalyticsController extends Controller
             foreach ($topExpenseCategories as $cat) {
                 $row[$cat] = (float) ($labelTotals[$cat] ?? 0);
             }
-            $otherTotal = 0.0;
-            foreach ($labelTotals as $lbl => $val) {
-                if (! in_array($lbl, $topExpenseCategories, true)) {
-                    $otherTotal += (float) $val;
-                }
-            }
-            $row['Others'] = $otherTotal;
             $monthlyCategoryData[] = $row;
         }
 

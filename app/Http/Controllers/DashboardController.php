@@ -56,6 +56,10 @@ class DashboardController extends Controller
             ];
         }
 
+        // All-time totals across all user transactions
+        $totalIncome = (float) ($user->transactions()->where('type', 'income')->sum('amount') ?? 0);
+        $totalExpenses = (float) ($user->transactions()->where('type', 'expense')->sum('amount') ?? 0);
+
         // Spending by category (this month); fold generic labels into Other
         $categoryRows = $user->transactions()
             ->where('type', 'expense')
@@ -81,6 +85,8 @@ class DashboardController extends Controller
             'recentTransactions' => $recentTransactions,
             'monthlyData' => $monthlyData,
             'categoryData' => $categoryData,
+            'totalIncome' => round($totalIncome, 2),
+            'totalExpenses' => round($totalExpenses, 2),
         ]);
     }
 }
