@@ -317,19 +317,19 @@ export default function Budgets({ budgets = [], categories = [], totalBalance = 
                 </>
             ) : (
                 <>
-                    {/* Header */}
+            {/* Header */}
                     <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-8">
-                        <div>
-                            <h1 className="text-2xl font-bold text-gray-900">Budgets</h1>
-                        </div>
-                        <button
-                            onClick={() => openModal()}
+                <div>
+                    <h1 className="text-2xl font-bold text-gray-900">Budgets</h1>
+                </div>
+                <button
+                    onClick={() => openModal()}
                             className="inline-flex items-center gap-2 px-5 py-2.5 bg-[#C85D3A] text-white rounded-xl font-medium hover:bg-[#B85450] transition-all shadow-sm"
-                        >
+                >
                             <PlusIcon className="h-5 w-5" />
-                            Add Budget
-                        </button>
-                    </div>
+                    Add Budget
+                </button>
+            </div>
 
                     {/* Summary stats */}
                     <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 mb-8">
@@ -340,16 +340,16 @@ export default function Budgets({ budgets = [], categories = [], totalBalance = 
                         <div className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm">
                             <span className="text-xs font-medium text-gray-500 uppercase tracking-wider">Budgeted</span>
                             <p className="text-2xl font-bold text-gray-900 mt-1">{fmt(totalBudgeted)}</p>
-                        </div>
+                </div>
                         <div className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm">
                             <span className="text-xs font-medium text-gray-500 uppercase tracking-wider">Spent</span>
                             <p className="text-2xl font-bold text-gray-900 mt-1">{fmt(totalSpent)}</p>
-                        </div>
+                </div>
                         <div className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm">
                             <span className="text-xs font-medium text-gray-500 uppercase tracking-wider">Remaining</span>
                             <p className={`text-2xl font-bold mt-1 ${totalRemaining > 0 ? 'text-emerald-600' : 'text-red-600'}`}>{fmt(totalRemaining)}</p>
-                        </div>
-                    </div>
+                </div>
+            </div>
 
                     {/* Overall progress bar */}
                     <div className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm mb-8">
@@ -383,7 +383,7 @@ export default function Budgets({ budgets = [], categories = [], totalBalance = 
                             return (
                                 <div key={budget.id} className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 hover:shadow-md transition-all">
                                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                                        <div className="flex-1">
+                                    <div className="flex-1">
                                             <div className="flex items-center gap-2 mb-2">
                                                 {isOverBudget && <ExclamationTriangleIcon className="h-4 w-4 text-red-500" />}
                                                 {isWarning && <ExclamationTriangleIcon className="h-4 w-4 text-amber-500" />}
@@ -393,8 +393,8 @@ export default function Budgets({ budgets = [], categories = [], totalBalance = 
                                                 </Link>
                                                 <span className="px-2 py-0.5 text-[10px] font-semibold rounded-full bg-gray-100 text-gray-600 uppercase">
                                                     {periodLabels[budget.period] || budget.period}
-                                                </span>
-                                                {!budget.is_active && (
+                                            </span>
+                                            {!budget.is_active && (
                                                     <span className="px-2 py-0.5 text-[10px] font-semibold rounded-full bg-gray-100 text-gray-400 uppercase">Inactive</span>
                                                 )}
                                             </div>
@@ -453,7 +453,7 @@ export default function Budgets({ budgets = [], categories = [], totalBalance = 
                             <div className="sticky top-0 bg-white border-b border-gray-100 px-6 py-4 flex items-center justify-between z-10 rounded-t-2xl">
                                 <h3 className="text-lg font-semibold text-gray-900">
                                     {editingBudget ? 'Edit Budget' : 'Create New Budget'}
-                                </h3>
+                            </h3>
                                 <button onClick={closeModal} className="p-2 rounded-xl text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-all">
                                     <XMarkIcon className="h-5 w-5" />
                                 </button>
@@ -461,23 +461,23 @@ export default function Budgets({ budgets = [], categories = [], totalBalance = 
 
                             <div className="p-6">
                                 <form onSubmit={handleSubmit} className="space-y-5">
-                                    <div>
+                                <div>
                                         <label className="block text-sm font-medium text-gray-700 mb-1.5">Category</label>
-                                        <select
-                                            value={data.category}
+                                    <select
+                                        value={data.category}
                                             onChange={(e) => setData('category', e.target.value)}
                                             className="w-full px-3 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-[#C85D3A]/20 focus:border-[#C85D3A] outline-none transition-all"
-                                            required
-                                        >
-                                            <option value="">Select a category</option>
-                                            {expenseCategories.map((cat) => (
+                                        required
+                                    >
+                                        <option value="">Select a category</option>
+                                        {expenseCategories.map((cat) => (
                                                 <option key={cat.id} value={cat.name}>{cat.icon} {cat.name}</option>
-                                            ))}
-                                        </select>
+                                        ))}
+                                    </select>
                                         {errors.category && <p className="text-red-600 text-xs mt-1">{errors.category}</p>}
-                                    </div>
+                                </div>
 
-                                    <div>
+                                <div>
                                         <label className="block text-sm font-medium text-gray-700 mb-1.5">Budget Amount (KSh)</label>
                                         <input
                                             type="number"
@@ -489,9 +489,9 @@ export default function Budgets({ budgets = [], categories = [], totalBalance = 
                                             required
                                         />
                                         {errors.amount && <p className="text-red-600 text-xs mt-1">{errors.amount}</p>}
-                                    </div>
+                                </div>
 
-                                    <div>
+                                <div>
                                         <label className="block text-sm font-medium text-gray-700 mb-1.5">Period</label>
                                         <div className="grid grid-cols-3 gap-2">
                                             {['weekly', 'monthly', 'yearly'].map((p) => (
@@ -505,62 +505,62 @@ export default function Budgets({ budgets = [], categories = [], totalBalance = 
                                                 </button>
                                             ))}
                                         </div>
-                                    </div>
+                                </div>
 
                                     <div className="grid grid-cols-2 gap-4">
-                                        <div>
+                                    <div>
                                             <label className="block text-sm font-medium text-gray-700 mb-1.5">Start Date</label>
-                                            <input
-                                                type="date"
-                                                value={data.start_date}
+                                        <input
+                                            type="date"
+                                            value={data.start_date}
                                                 onChange={(e) => setData('start_date', e.target.value)}
                                                 className="w-full px-3 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-[#C85D3A]/20 focus:border-[#C85D3A] outline-none transition-all"
-                                                required
-                                            />
-                                        </div>
-                                        <div>
+                                            required
+                                        />
+                                    </div>
+                                    <div>
                                             <label className="block text-sm font-medium text-gray-700 mb-1.5">End Date <span className="text-gray-400">(optional)</span></label>
-                                            <input
-                                                type="date"
-                                                value={data.end_date || ''}
+                                        <input
+                                            type="date"
+                                            value={data.end_date || ''}
                                                 onChange={(e) => setData('end_date', e.target.value)}
                                                 className="w-full px-3 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-[#C85D3A]/20 focus:border-[#C85D3A] outline-none transition-all"
                                             />
                                         </div>
-                                    </div>
+                                </div>
 
                                     <div className="flex items-center gap-6 py-2">
                                         <label className="flex items-center gap-2 cursor-pointer">
-                                            <input
-                                                type="checkbox"
-                                                checked={data.is_active}
+                                        <input
+                                            type="checkbox"
+                                            checked={data.is_active}
                                                 onChange={(e) => setData('is_active', e.target.checked)}
                                                 className="h-4 w-4 text-[#C85D3A] focus:ring-[#C85D3A] border-gray-300 rounded"
                                             />
                                             <span className="text-sm text-gray-700">Active</span>
                                         </label>
                                         <label className="flex items-center gap-2 cursor-pointer">
-                                            <input
-                                                type="checkbox"
-                                                checked={data.alert_enabled}
+                                        <input
+                                            type="checkbox"
+                                            checked={data.alert_enabled}
                                                 onChange={(e) => setData('alert_enabled', e.target.checked)}
                                                 className="h-4 w-4 text-[#C85D3A] focus:ring-[#C85D3A] border-gray-300 rounded"
                                             />
                                             <span className="text-sm text-gray-700">Alerts enabled</span>
                                         </label>
-                                    </div>
+                                </div>
 
                                     {data.alert_enabled && (
-                                        <div>
+                                <div>
                                             <label className="block text-sm font-medium text-gray-700 mb-1.5">
                                                 Alert threshold: <span className="text-[#C85D3A] font-bold">{data.alert_threshold}%</span>
-                                            </label>
-                                            <input
+                                    </label>
+                                    <input
                                                 type="range"
                                                 min="10"
-                                                max="100"
+                                        max="100"
                                                 step="5"
-                                                value={data.alert_threshold}
+                                        value={data.alert_threshold}
                                                 onChange={(e) => setData('alert_threshold', Number(e.target.value))}
                                                 className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-[#C85D3A]"
                                             />
@@ -573,20 +573,20 @@ export default function Budgets({ budgets = [], categories = [], totalBalance = 
 
                                     <div className="flex justify-end gap-3 pt-3">
                                         <button type="button" onClick={closeModal} className="px-4 py-2.5 text-sm font-medium text-gray-600 hover:text-gray-800 transition-colors">
-                                            Cancel
-                                        </button>
-                                        <button
-                                            type="submit"
-                                            disabled={processing}
+                                        Cancel
+                                    </button>
+                                    <button
+                                        type="submit"
+                                        disabled={processing}
                                             className="px-6 py-2.5 bg-[#C85D3A] text-white rounded-xl font-medium hover:bg-[#B85450] disabled:opacity-40 transition-all"
                                         >
                                             {processing ? 'Saving...' : editingBudget ? 'Update Budget' : 'Create Budget'}
-                                        </button>
-                                    </div>
-                                </form>
-                            </div>
+                                    </button>
+                                </div>
+                            </form>
                         </div>
                     </div>
+                </div>
                 </div>,
                 document.body
             )}
